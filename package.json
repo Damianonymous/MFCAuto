@@ -1,0 +1,67 @@
+{
+  "_from": "github:Damianonymous/MFCAuto",
+  "_id": "MFCAuto@5.2.2",
+  "_inBundle": false,
+  "_location": "/MFCAuto",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "git",
+    "raw": "MFCAuto@github:Damianonymous/MFCAuto",
+    "name": "MFCAuto",
+    "escapedName": "MFCAuto",
+    "rawSpec": "github:Damianonymous/MFCAuto",
+    "saveSpec": "github:Damianonymous/MFCAuto",
+    "fetchSpec": null,
+    "gitCommittish": null
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "github:Damianonymous/MFCAuto#793696a0e90a58db2b39c48b90a323af6bc2db76",
+  "_spec": "MFCAuto@github:Damianonymous/MFCAuto",
+  "_where": "C:\\Users\\Downloads\\streamdvr-master",
+  "author": {
+    "name": "Damianonymous"
+  },
+  "bugs": {
+    "url": "https://github.com/Damianonymous/MFCAuto/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {
+    "load": "^1.0.2",
+    "ws": "^5.1.1",
+    "xmlhttprequest": "^1.8.0"
+  },
+  "deprecated": false,
+  "description": "A module for interacting with MyFreeCams chat servers.",
+  "devDependencies": {
+    "@types/node": "^9.6.5",
+    "@types/ws": "^4.0.2",
+    "chai": "^4.1.2",
+    "istanbul": "^0.4.5",
+    "mocha": "^5.1.1",
+    "tslint": "^5.9.1",
+    "typescript": "^2.8.1"
+  },
+  "engines": {
+    "node": ">=10.2.1"
+  },
+  "homepage": "https://github.com/Damianonymous/MFCAuto#readme",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "name": "MFCAuto",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Damianonymous/MFCAuto.git"
+  },
+  "scripts": {
+    "build": "tsc",
+    "coverage": "istanbul cover node_modules/mocha/bin/_mocha src/test/test.js",
+    "lint": "tslint --project tsconfig.json",
+    "prebuild": "tslint --project tsconfig.json",
+    "test": "mocha src/test/test.js",
+    "testfast": "mocha src/test/test.js -g \"^(?!.*{slow})\""
+  },
+  "typings": "./lib/index.d.ts",
+  "version": "5.2.2"
+}
