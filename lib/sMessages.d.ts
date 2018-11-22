@@ -16,10 +16,28 @@ export interface FCTokenIncResponse {
     u: [number, number, string];
     msg?: string;
     extdata?: {
+        share_post_data: {
+            color?: string;
+            include_in_countdown: number;
+            poll_option_slug?: string;
+            poll_option_title?: string;
+            poll_title?: string;
+            recipient_id: number;
+            thing_id: number;
+            thing_type: string;
+            tip_amount: number;
+            transaction_id: number;
+            trns_announce: number;
+            trns_message: string;
+            trns_title: string;
+            trns_type: string;
+            trns_url: string;
+            user_id: number;
+        };
         svc_id: number;
         trns_id: number;
         trns_title: string;
-        trns_type: "Storeitem" | "Album" | "Club" | "Goal" | string;
+        trns_type: "Storeitem" | "Album" | "Club" | "Goal" | "Poll" | string;
         trns_url: string;
     };
 }
@@ -120,15 +138,22 @@ export interface SessionDetailsMessage {
     [index: string]: UnknownJsonField;
 }
 export interface ExtendedDetailsMessage {
+    fcext: {
+        sfw: number;
+        sm: string;
+    };
     share: MfcShareDetailsMessage;
     [index: string]: UnknownJsonField;
 }
 export interface MfcShareDetailsMessage {
     albums: number;
-    follows: number;
     clubs: number;
     collections: number;
+    follows: number;
+    goals: number;
+    polls: number;
     stores: number;
+    things: number;
     tm_album: number;
     [index: string]: UnknownJsonField;
 }
@@ -198,17 +223,17 @@ export interface ZBanMessage {
  */
 export interface StatusMessage {
     c_hightipper: {
-        /** Amount of the room's highest tip */
+        /** Total amount tipped by the room's highest cumulative tipper (public tips only) */
         amt: number;
-        /** User ID of the room's highest tipper */
+        /** User ID of the room's highest cumulative tipper */
         uid: number;
     };
     /** Channel ID of the room this message is about */
     chan: number;
     s_hightipper: {
-        /** Amount of the room's second highest tip */
+        /** Amount of the room's highest single tip (public tips only) */
         amt: number;
-        /** User ID of the room's second highest tipper */
+        /** User ID of the room's highest single tipper */
         uid: number;
     };
     /** Array of user IDs of the room's most recent tippers */

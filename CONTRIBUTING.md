@@ -38,7 +38,7 @@ It's not required but I do most of my coding with [Visual Studio Code](https://c
 
 ### Enlisting
 ```bash
-git clone https://github.com/Damianonymous/MFCAuto.git
+git clone <wherever the repo lives now>
 cd ./MFCAuto
 npm install
 ```

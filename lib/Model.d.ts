@@ -169,12 +169,11 @@ export declare class Model extends EventEmitter {
      * Retrieves a specific model instance by user id from knownModels, creating
      * the model instance if it does not already exist.
      * @param id Model id of the model to retrieve. It should be a valid model
-     * ID. The [first example here](https://github.com/Damianonymous/MFCAuto/blob/master/README.md)
-     * has one way to discover a model's ID, using MFCAuto and
-     * client.queryUser.  Another, simpler, way is to open a model's chat room
-     * as a "Popup" and look at the URL of that room.  In the URL, there will
-     * be a portion that says "broadcaster_id=3111899".  That number is that
-     * model's ID.
+     * ID. Using client.queryUser is one way to discover a model's ID from her
+     * model name. Another, simpler, way is to open a model's chat room as a
+     * "Popup" and look at the URL of that room.  In the URL, there will be a
+     * portion that says "broadcaster_id=3111899".  That number is that model's
+     * ID.
      * @param [createIfNecessary] If the model is not found in Model.knownModels
      * and this value is True, the default, a new model instance will be created
      * for her and returned. If the model is not found and this value is False
@@ -249,7 +248,7 @@ export declare class Model extends EventEmitter {
      * |topic|string|The model's current room topic
      * |truepvt|number|If a model is in vs STATE.Private and this value is 1, then that private is a true private. There is no unique state for true private, you have to check both vs and truepvt values.
      * |uid|number|The model's user ID
-     * |vs|A number mapping to [FCVIDEO](https://github.com/Damianonymous/MFCAuto/blob/master/src/main/Constants.ts#L493) or the more friendly form, [STATE](https://github.com/Damianonymous/MFCAuto/blob/master/src/main/Constants.ts#L10)|The general status of a model (online, offline, away, freechat, private, or groupshow). There are many other status possibilities, but those are the ones you likely care about.
+     * |vs|A number mapping to FCVIDEO (see Contants.ts) or the more friendly form, STATE (see Contants.ts)|The general status of a model (online, offline, away, freechat, private, or groupshow). There are many other status possibilities, but those are the ones you likely care about.
      */
     readonly bestSession: ModelSessionDetails;
     /**
