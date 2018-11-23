@@ -18,9 +18,8 @@ export declare const ClientState: {
  *
  * Client instances are [NodeJS EventEmitters](https://nodejs.org/api/all.html#events_class_eventemitter)
  * and will emit an event every time a Packet is received from the server. The
- * event will be named after the FCType of the Packet. See
- * [FCTYPE in ./src/main/Constants.ts](https://github.com/Damianonymous/MFCAuto/blob/master/src/main/Constants.ts#L350)
- * for the complete list of possible events.
+ * event will be named after the FCType of the Packet. See FCTYPE in
+ * ./src/main/Constants.ts for the complete list of possible events.
  *
  * Listening for Client events is an advanced feature and requires some
  * knowledge of MFC's chat server protocol, which will not be documented here.
@@ -43,6 +42,8 @@ export declare class Client extends EventEmitter {
     stream_cxid?: number;
     stream_password?: string;
     stream_vidctx?: string;
+    private _webApiToken?;
+    private _tokens;
     private _state;
     private _choseToLogIn;
     private _completedModels;
@@ -94,19 +95,19 @@ export declare class Client extends EventEmitter {
     addListener(event: ClientEventName, listener: ClientEventCallback): this;
     /**
      * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter) method
-     * See [FCTYPE in ./src/main/Constants.ts](https://github.com/Damianonymous/MFCAuto/blob/master/src/main/Constants.ts#L350) for all possible event names
+     * See FCTYPE in ./src/main/Constants.ts for all possible event names
      */
     on(event: ClientEventName, listener: ClientEventCallback): this;
     /**
      * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter) method
-     * See [FCTYPE in ./src/main/Constants.ts](https://github.com/Damianonymous/MFCAuto/blob/master/src/main/Constants.ts#L350) for all possible event names
+     * See FCTYPE in ./src/main/Constants.ts for all possible event names
      */
     once(event: ClientEventName, listener: ClientEventCallback): this;
     prependListener(event: ClientEventName, listener: ClientEventCallback): this;
     prependOnceListener(event: ClientEventName, listener: ClientEventCallback): this;
     /**
      * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter) method
-     * See [FCTYPE in ./src/main/Constants.ts](https://github.com/Damianonymous/MFCAuto/blob/master/src/main/Constants.ts#L350) for all possible event names
+     * See FCTYPE in ./src/main/Constants.ts for all possible event names
      */
     removeListener(event: ClientEventName, listener: ClientEventCallback): this;
     removeAllListeners(event?: ClientEventName): this;
@@ -132,6 +133,15 @@ export declare class Client extends EventEmitter {
      * in milliseconds. Or 0 if this client is not currently connected
      */
     readonly uptime: number;
+    /**
+     * Returns headers required to authenticate an HTTP request to
+     * MFC's web servers.
+     */
+    readonly httpHeaders: object;
+    /**
+     * Tokens available on this account
+     */
+    readonly tokens: number;
     /**
      * Internal MFCAuto use only
      *
@@ -336,6 +346,82 @@ export declare class Client extends EventEmitter {
      */
     sendPM(id: number, msg: string): Promise<void>;
     /**
+     * Sends a tip to the given model
+     * @param id Model ID to tip
+     * @param amount Token value to tip
+     * @param options Options bag to specify various options about the tip
+     */
+    sendTip(id: number, amount: number, options: TipOptions): Promise<string>;
+    /**
+     * Retrieves all token sessions for the year and month that the given
+     * date is from. The specific day or time doesn't matter. It returns
+     * the whole month's data.
+     * @param date
+     */
+    private _getTokenUsageForMonth(date);
+    /**
+     * When client is a premium member, this method will retrieve all
+     * token usage for that member between the given dates.
+     *
+     * This method does not require an active connection to a chat server.
+     * It only requires that the client have been initialized with
+     * premium credentials.
+     *
+     * By default, tip comments will be decoded into chat strings like
+     * "I am happy :mhappy" as you would type them in MFC's chat box.
+     * However the emote codes are not always available in token stats.
+     * Images with no emote codes will be translated to ":unknown_emote".
+     * If you'd prefer to keep the full HTML of the tip comment, including
+     * any image links, you can set preserveHtml to true when constructing
+     * the client. Then each comment will be returned as a raw HTML string.
+     *
+     * Note: I'm not sure if MFC displays tip times in a user's local time
+     * zone or always Pacific US time. So this may have some timezone
+     * related bugs if you really care about exactly precise timings.
+     * @param startDate
+     * @param endDate Optional, defaults to now
+     * @returns A promise that resolves with an array of TokenSession objects
+     */
+    getTokenUsage(startDate: Date, endDate?: Date): Promise<Array<TokenSession>>;
+    /**
+     * Takes a CheerioElement that represents a single line of chat which may
+     * contain emotes, and returns the string representation with the ":mhappy"
+     * style emotes included wherever possible.
+     */
+    private _chatElementToString(element);
+    /** Retrieves a listing of all avaiable chat log segments for a given month and year */
+    private _getChatLogParamsForMonth(date);
+    /** Retrieves a single chat log segment from MFC */
+    private _getChatLog(params, page?);
+    /**
+     * When client is a premium member, this method will retrieve all
+     * chat archives for that member between the given dates.
+     *
+     * This method does not require an active connection to a chat server.
+     * It only requires that the client have been initialized with
+     * premium credentials.
+     *
+     * By default, chat will be decoded into strings like "I am happy :mhappy"
+     * as you would type them in MFC's chat box. However the emote codes are
+     * not always available in chat archives. Images with no emote codes will
+     * be translated to ":unknown_emote". If you'd prefer to keep the full
+     * HTML of the message, including any image links, you can set preserveHtml
+     * to true when constructing the client. Then each chat message will be
+     * returned as a raw HTML string.
+     *
+     * Note: I'm not sure if MFC displays times in a user's local time
+     * zone or always Pacific US time. So this may have some timezone
+     * related bugs if you really care about exactly precise timings.
+     * @param startDate
+     * @param endDate Optional, defaults to now
+     * @param userId Only return logs involving this model or user ID. If
+     * this value is a model ID, it will include all public chat in that
+     * model's room. By default, all logs for all users in the given time
+     * range will be returned.
+     * @returns A promise that resolves with an array of ChatLog objects
+     */
+    getChatLogs(startDate: Date, endDate?: Date, userId?: number): Promise<Array<ChatLog>>;
+    /**
      * Joins the public chat room of the given model
      * @param id Model ID or room/channel ID to join
      * @returns A promise that resolves after successfully
@@ -509,7 +595,8 @@ export declare class Client extends EventEmitter {
      * Logs in to MFC. This should only be called after Client connect(false);
      * See the comment on Client's constructor for details on the password to use.
      */
-    login(username?: string, password?: string): void;
+    login(username?: string, password?: string): Promise<void>;
+    private _challenge();
     /**
      * Connects to MFC and logs in, just like this.connect(true),
      * but in this version the returned promise resolves when the initial
@@ -550,6 +637,9 @@ export interface ServerConfig {
     ngvideo_servers: {
         [index: string]: string;
     };
+    wzobs_servers: {
+        [index: string]: string;
+    };
     release: boolean;
     video_servers: string[];
     websocket_servers: {
@@ -564,4 +654,35 @@ export interface ClientOptions {
     stateSilenceTimeout?: number;
     loginTimeout?: number;
     connectionTimeout?: number;
+    modernLogin?: boolean;
+    preserveHtml?: boolean;
+}
+export interface TipOptions {
+    anonymous?: 0 | 1;
+    comment?: string;
+    public?: 0 | 1;
+    public_comment?: 0 | 1;
+    silent?: 0 | 1;
+    hide_amount?: 0 | 1;
+}
+export interface TokenSession {
+    date: Date;
+    type: "Tip" | "Voyeur" | "Private" | "MFC Share" | "Token Transfer (Received)" | "Token Transfer (Sent)" | string;
+    recipient: string;
+    tokens: number;
+    comment?: string;
+}
+export interface ChatLine {
+    time: Date;
+    user?: string;
+    text?: string;
+    type?: string;
+}
+export interface ChatLog {
+    toUserId: number;
+    toChannelId?: number;
+    sessionType: number;
+    logDate: Date;
+    videoUrl?: string;
+    lines: Array<ChatLine>;
 }

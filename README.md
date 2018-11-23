@@ -6,21 +6,22 @@ Beyond exposing the communication protocol, MFCAuto.js provides several useful a
 
 While MFCAuto.js was developed entirely independently, at its core it is similar to [KradekMFC](https://github.com/KradekMFC)'s excellent [MFCSocket](https://github.com/KradekMFC/MFCSocket) module.
 
-Here are some examples of how you might use MFCAuto.js.  [More complete API documentation can be found here](https://github.com/Damianonymous/MFCAuto/tree/master/src/main) or by reviewing the source in the same folder directly.
+Here are some examples of how you might use MFCAuto.js.  [More complete API documentation can be found here](./src/main/) or by reviewing the source in the same folder directly.
 
 ------------
 
 ## Setup
 
+*Note that these commands no longer work to install. I'll leave them here for reference though.*
 ```bash
 # Install a released version using the release tag (recommended)
-$ npm install Damianonymous/MFCAuto#v5.2.2
+$ npm install ZombieAlex/MFCAuto#v5.2.2
 
 # Install a specific commit hash (this is the v5.2.2 commit hash)
-$ npm install Damianonymous/MFCAuto#793696a0e90a58db2b39c48b90a323af6bc2db76
+$ npm install ZombieAlex/MFCAuto#f4f8dda6e01f00620bb7619a9f491268218774dc
 
 # Install the latest MFCAuto from the tip of master
-$ npm install Damianonymous/MFCAuto
+$ npm install ZombieAlex/MFCAuto
 ```
 
 ------------
@@ -36,7 +37,7 @@ As each Model's status is updated, the Model instance fires an event named after
 
 In this example, we are listening for changes in the Model's "vs" property, "vs" is short for "video state".  This field is what tracks the offline/on camera/away/in private/in group show status of each Model.  For all possible values of "video state" see the FCVIDEO enum in src/main/Constants.ts.
 
-Note: If logging room chat or status changes is your primary scenario, you may want to check out my [MFCLogger](https://github.com/Damianonymous/MFCLogger) module.
+Note: If logging room chat or status changes is your primary scenario, you may want to check out my [MFCLogger](https://github.com/ZombieAlex/MFCLogger) module.
 
 ```javascript
 var mfc = require("MFCAuto");

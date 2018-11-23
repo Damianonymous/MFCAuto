@@ -30,5 +30,21 @@ export declare function log(msg: string | (() => string), logFileName?: string, 
 export declare function decodeIfNeeded(str: string): string;
 export declare function decodeAny(anything: any): any;
 export declare function applyMixins(derivedCtor: Function, baseCtors: Function[]): void;
-export declare function httpGet(url: string): Promise<string>;
-export declare function httpsGet(url: string): Promise<string>;
+/**
+ * Helper function to find the full path to an executable of a given name
+ * that should have been brought down as a direct npm dependency of MFCAuto.
+ */
+export declare function findDependentExe(name: string): string;
+/**
+ * Helper function that spawns the given executable with the given arguments
+ * and returns a promise that resolves with all the text the process wrote
+ * to stdout, or rejects if the process couldn't be run or had any stderr output
+ */
+export declare function spawnOutput(command: string, args?: string[]): Promise<string>;
+/**
+ * Takes a string representation of a JS object, with potentially
+ * unquoted or single quoted keys, converts it to a form that
+ * can be parsed with JSON.parse, and returns the parsed result.
+ * @param input
+ */
+export declare function parseJsObj(input: string): any;

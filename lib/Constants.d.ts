@@ -6,6 +6,7 @@ export declare enum STATE {
     Away = 2,
     Private = 12,
     GroupShow = 13,
+    Club = 14,
     Online = 90,
     Offline = 127,
 }
@@ -35,6 +36,7 @@ export declare enum EVSESSION {
     "GROUP" = 3,
     "FEATURE" = 4,
     "AWAYPVT" = 5,
+    "CLUB" = 6,
     "TIP" = 10,
     "PUBLIC" = 100,
     "AWAY" = 101,
@@ -59,6 +61,7 @@ export declare enum FCACCEPT {
     "V2_BASICS" = 128,
     "V2_BOOKMARKS" = 256,
     "V2_TOPFRIENDS" = 512,
+    "V2_CLUBMEMBERS" = 1024,
 }
 export declare enum FCACT {
     "CHAN_TIP" = 1006,
@@ -80,6 +83,28 @@ export declare enum FCAPP {
     "AUTH" = 4,
     "LOADTEST" = 5,
     "TRANSCODER" = 6,
+    "CLIENT" = 7,
+    "FLUX_CLIENT" = 32,
+    "FLUX_SERVICE" = 33,
+    "FLUX_BROKER" = 34,
+    "WWW" = 100,
+    "PROFILES" = 101,
+    "MOBILE" = 102,
+    "IMG" = 103,
+    "API" = 104,
+    "ADMIN" = 105,
+    "ARCHIVE" = 204,
+    "DATABASE" = 205,
+    "FMS" = 500,
+    "WOWZA" = 501,
+    "WOWZA_RELAY" = 502,
+    "WOWZA_CAM2CAM" = 503,
+    "WOWZA_OBS" = 508,
+    "NGINX" = 510,
+    "FMS_SHARED" = 801,
+    "CAM2CAM" = 802,
+    "FMS_ORIGIN" = 803,
+    "FMS_EDGE" = 804,
 }
 export declare enum FCBAN {
     "NONE" = 0,
@@ -88,25 +113,25 @@ export declare enum FCBAN {
     "LIFE" = 3,
 }
 export declare enum FCCHAN {
-    "NOOPT" = 0,
     "EVENT_NONE" = 0,
-    "JOIN" = 1,
+    "NOOPT" = 0,
     "EVENT_CLEARCHAT" = 1,
-    "PART" = 2,
+    "JOIN" = 1,
     "ERR_NOCHANNEL" = 2,
     "EVENT_MUTE" = 2,
+    "PART" = 2,
     "ERR_NOTMEMBER" = 3,
     "EVENT_TOPIC" = 3,
-    "OLDMSG" = 4,
     "ERR_GUESTMUTE" = 4,
     "EVENT_COUNTDOWN" = 4,
+    "OLDMSG" = 4,
     "ERR_GROUPMUTE" = 5,
     "EVENT_KICK" = 5,
     "ERR_NOTALLOWED" = 6,
     "EVENT_WHITEBOARD_ON" = 6,
     "EVENT_WHITEBOARD_OFF" = 7,
-    "HISTORY" = 8,
     "EVENT_RESERVED_008" = 8,
+    "HISTORY" = 8,
     "EVENT_RESERVED_009" = 9,
     "EVENT_RESERVED_010" = 10,
     "EVENT_RESERVED_011" = 11,
@@ -114,8 +139,8 @@ export declare enum FCCHAN {
     "EVENT_RESERVED_013" = 13,
     "EVENT_RESERVED_014" = 14,
     "EVENT_RESERVED_015" = 15,
-    "LIST" = 16,
     "EVENT_RESERVED_016" = 16,
+    "LIST" = 16,
     "CAMSTATE" = 16,
     "EVENT_RESERVED_017" = 17,
     "EVENT_RESERVED_018" = 18,
@@ -124,6 +149,14 @@ export declare enum FCCHAN {
     "BATCHPART" = 64,
     "EXT_USERNAME" = 128,
     "EXT_USERDATA" = 256,
+    "NO_CHANGES" = 512,
+    "APPEND" = 1024,
+    "REPLACE" = 2048,
+    "UPDATE" = 4096,
+    "QUERY" = 8192,
+    "EXPIRE" = 16384,
+    "NOTIFY" = 32768,
+    "APPLY" = 65536,
 }
 export declare enum FCERRTYPE {
     "INVALIDUSER" = 10,
@@ -156,6 +189,7 @@ export declare enum FCL {
     "ROOMFILTERS" = 13,
     "BANS" = 14,
     "MUTES" = 15,
+    "UEOPTS" = 16,
     "RESERVED_16" = 16,
     "RESERVED_17" = 17,
     "RESERVED_18" = 18,
@@ -163,6 +197,7 @@ export declare enum FCL {
     "TAGS" = 20,
     "CAMS" = 21,
     "ROOMMATES" = 22,
+    "SOCIALDATA" = 23,
     "RESERVED_23" = 23,
     "RESERVED_24" = 24,
     "RESERVED_25" = 25,
@@ -228,6 +263,7 @@ export declare enum FCOPT {
     "XMPP" = 32768,
     "WHITEBOARD1" = 65536,
     "WHITEBOARD2" = 131072,
+    "ATTACHED" = 262144,
 }
 export declare enum FCPORT {
     "EDGE_POLICY" = 843,
@@ -241,6 +277,7 @@ export declare enum FCPORT {
     "EDGE_CLIENT3" = 8100,
     "EDGE_WEBSOCKGW" = 8101,
     "EDGE_CLIENT2" = 8550,
+    "WORKER_BASE" = 9000,
 }
 export declare enum FCRESPONSE {
     "SUCCESS" = 0,
@@ -260,6 +297,8 @@ export declare enum FCRESPONSE {
     "INVALIDARG" = 14,
     "NOTFOUND" = 15,
     "INSUFFICIENT" = 16,
+    "EXPIRED" = 17,
+    "BINARY" = 18,
 }
 export declare enum FCRPC {
     "NONE" = 0,
@@ -391,6 +430,7 @@ export declare enum FCTYPE {
     "XREQUEST" = 86,
     "XRESPONSE" = 87,
     "EDGECON" = 88,
+    "XMESG" = 89,
     "ZGWINVALID" = 95,
     "CONNECTING" = 96,
     "CONNECTED" = 97,
@@ -427,6 +467,12 @@ export declare enum FCUOPT {
     "RESERVED_15" = 16384,
     "RESERVED_16" = 32768,
     "RESERVED_17" = 65536,
+    "FLAG_HDVIDEO" = 131072,
+    "FLAG_MODELSW" = 262144,
+    "FLAG_XMPP" = 524288,
+    "FLAG_WHITEBOARD1" = 1048576,
+    "FLAG_WHITEBOARD2" = 2097152,
+    "FLAG_ATTACHED" = 4194304,
 }
 export declare enum FCUPDATE {
     "NONE" = 0,
@@ -443,7 +489,7 @@ export declare enum FCVIDEO {
     "TX_CONFIRMING" = 11,
     "TX_PVT" = 12,
     "TX_GRP" = 13,
-    "TX_RESERVED" = 14,
+    "TX_CLUB" = 14,
     "TX_KILLMODEL" = 15,
     "C2C_ON" = 20,
     "C2C_OFF" = 21,
@@ -451,6 +497,7 @@ export declare enum FCVIDEO {
     "RX_PVT" = 91,
     "RX_VOY" = 92,
     "RX_GRP" = 93,
+    "RX_CLUB" = 94,
     "NULL" = 126,
     "OFFLINE" = 127,
     "UNKNOWN" = 127,
@@ -606,15 +653,17 @@ export declare enum TKOPT {
     "TIP_SILENT" = 131072,
     "TIP_NOCOUNT" = 262144,
     "HDVIDEO" = 1048576,
+    "TIP_OFFLINE_USER" = 2097152,
+    "TIP_OFFLINE_MODEL" = 4194304,
     "TIP_PURCHASE" = 8388608,
-    "TIP_PURCHASE_RES_24" = 16777216,
-    "TIP_PURCHASE_RES_25" = 33554432,
+    "TIP_PURCHASE_CLUB" = 16777216,
+    "TIP_PURCHASE_GOAL" = 33554432,
     "TIP_PURCHASE_NOTIFY" = 67108864,
     "TIP_PURCHASE_LINK" = 134217728,
     "TIP_PURCHASE_ALBUM" = 268435456,
     "TIP_PURCHASE_COLLECTION" = 536870912,
     "TIP_PURCHASE_STOREITEM" = 1073741824,
-    "TIP_PURCHASE_RES_31" = 2147483648,
+    "TIP_PURCHASE_OTHER" = 2147483648,
 }
 export declare enum USER {
     "ID_START" = 100,
@@ -636,6 +685,15 @@ export declare enum V2 {
     "F4V" = 8,
     "MP4X" = 16,
     "MP4W" = 32,
+}
+export declare enum VST {
+    "FMS" = 0,
+    "WOWZA" = 1,
+    "WOWZA_RELAY" = 2,
+    "WOWZA_CAM2CAM" = 3,
+    "WOWZA_OBS" = 8,
+    "NGINX" = 10,
+    "NULL" = 255,
 }
 export declare enum WEBCAM {
     "SECURITY_EVERYONE" = 0,
@@ -881,27 +939,6 @@ export declare const CACHED_SERVERCONFIG: {
         "1375": string;
         "1376": string;
         "1377": string;
-        "1378": string;
-        "1379": string;
-        "1380": string;
-        "1381": string;
-        "1382": string;
-        "1383": string;
-        "1384": string;
-        "1385": string;
-        "1386": string;
-        "1387": string;
-        "1388": string;
-        "1389": string;
-        "1390": string;
-        "1392": string;
-        "1393": string;
-        "1394": string;
-        "1395": string;
-        "1396": string;
-        "1397": string;
-        "1398": string;
-        "1399": string;
         "840": string;
         "841": string;
         "842": string;
@@ -948,8 +985,6 @@ export declare const CACHED_SERVERCONFIG: {
         "917": string;
         "918": string;
         "919": string;
-        "938": string;
-        "939": string;
         "940": string;
         "941": string;
         "942": string;
@@ -1005,6 +1040,18 @@ export declare const CACHED_SERVERCONFIG: {
         "992": string;
     };
     "ngvideo_servers": {
+        "1378": string;
+        "1379": string;
+        "1380": string;
+        "1381": string;
+        "1382": string;
+        "1383": string;
+        "1384": string;
+        "1385": string;
+        "1386": string;
+        "1387": string;
+        "1398": string;
+        "1399": string;
         "1545": string;
         "1546": string;
         "1547": string;
@@ -1015,6 +1062,11 @@ export declare const CACHED_SERVERCONFIG: {
         "1552": string;
         "1553": string;
         "1554": string;
+        "1555": string;
+        "1556": string;
+        "1557": string;
+        "1558": string;
+        "1559": string;
     };
     "release": boolean;
     "video_servers": string[];
@@ -1088,5 +1140,19 @@ export declare const CACHED_SERVERCONFIG: {
         "xchat97": string;
         "xchat98": string;
         "xchat99": string;
+    };
+    "wzobs_servers": {
+        "1388": string;
+        "1389": string;
+        "1390": string;
+        "1391": string;
+        "1392": string;
+        "1393": string;
+        "1394": string;
+        "1395": string;
+        "1396": string;
+        "1397": string;
+        "938": string;
+        "939": string;
     };
 };
