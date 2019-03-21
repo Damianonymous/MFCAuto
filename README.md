@@ -15,13 +15,13 @@ Here are some examples of how you might use MFCAuto.js.  [More complete API docu
 *Note that these commands no longer work to install. I'll leave them here for reference though.*
 ```bash
 # Install a released version using the release tag (recommended)
-$ npm install ZombieAlex/MFCAuto#v5.2.2
+$ npm install Damianonymous/MFCAuto#v5.11.4
 
 # Install a specific commit hash (this is the v5.2.2 commit hash)
-$ npm install ZombieAlex/MFCAuto#f4f8dda6e01f00620bb7619a9f491268218774dc
+$ npm install Damianonymous/MFCAuto#f4f8dda6e01f00620bb7619a9f491268218774dc
 
 # Install the latest MFCAuto from the tip of master
-$ npm install ZombieAlex/MFCAuto
+$ npm install Damianonymous/MFCAuto
 ```
 
 ------------
