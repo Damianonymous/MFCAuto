@@ -1,8 +1,7 @@
-/// <reference types="node" />
-import { EventEmitter } from "events";
-import * as constants from "./Constants";
 import { Model } from "./Model";
 import { Packet } from "./Packet";
+import { RefinedEventEmitter } from "./RefinedEventEmitter";
+import * as constants from "./Constants";
 import * as messages from "./sMessages";
 /**
  * Connection state of the client
@@ -25,7 +24,7 @@ export declare const ClientState: {
  * knowledge of MFC's chat server protocol, which will not be documented here.
  * Where possible, listen for events on [Model](#Model) instead.
  */
-export declare class Client extends EventEmitter {
+export declare class Client extends RefinedEventEmitter<ClientEventName, ClientEventCallback, Packet | Boolean> {
     /** Session ID assigned to this client by the server after login */
     sessionId: number;
     /**
@@ -35,21 +34,29 @@ export declare class Client extends EventEmitter {
      * be updated to reflect that
      */
     username: string;
-    /** hashed password used by this client to log in */
+    /** unhashed password used by this client to log in */
     password: string;
     /** User ID assigned to the currently logged in user */
     uid: number | undefined;
     stream_cxid?: number;
     stream_password?: string;
     stream_vidctx?: string;
+    /** MFC generated 32-character hash of password */
+    private _passcode?;
+    private _passcode_password?;
     private _webApiToken?;
     private _tokens;
     private _state;
     private _choseToLogIn;
     private _completedModels;
     private _completedTags;
+    private _shareHasLoggedIn;
+    private _shareCookieJar?;
+    private readonly _roomHelperStatus;
+    private readonly _availableClubShows;
     private readonly _options;
     private readonly _baseUrl;
+    private readonly _shareUrl;
     serverConfig: ServerConfig | undefined;
     private _streamBuffer;
     private _streamWebSocketBuffer;
@@ -72,14 +79,22 @@ export declare class Client extends EventEmitter {
     /**
      * Client constructor
      * @param [username] Either "guest" or a real MFC member account name, default is "guest"
-     * @param [password] Either "guest" or, to log in with a real account the password
-     * should be a hash of your real password and NOT your actual plain text
-     * password. You can discover the appropriate string to use by checking your browser
+     * @param [password] Either "guest" or the account's password.
+     *
+     * This can be either the real password or the password hash as MFCAuto has always taken
+     * historically. Client will attempt to auto-detect which type of password you have specified.
+     *
+     * If your real password looks like a hashed password (exactly 32 alphanumeric characters
+     * with no spaces or special characters), it will be incorrectly detected as a hashed
+     * password. In which case, you can override the auto-detection of password type and
+     * force Client to treat it as the real password by specifying `{ forceUnhashedPassword: true }`
+     * as part of the constructor options.
+     *
+     * If you wish to use the hashed password, you can discover it by checking your browser
      * cookies after logging in via your browser.  In Firefox, go to Options->Privacy
      * and then "Show Cookies..." and search for "myfreecams".  You will see one
      * cookie named "passcode". Select it and copy the value listed as "Content".
      * It will be a long string of lower case letters that looks like gibberish.
-     * *That* is the password to use here.
      * @param [options] A ClientOptions object detailing several optional Client settings
      * like whether to use WebSockets or traditional TCP sockets and whether to connect
      * to MyFreeCams.com or CamYou.com
@@ -92,32 +107,6 @@ export declare class Client extends EventEmitter {
      * const guestCamYouFlashClient = new mfc.Client("guest", "guest", {useWebSockets: false, camYou: true});
      */
     constructor(username?: string, password?: string, options?: boolean | ClientOptions);
-    addListener(event: ClientEventName, listener: ClientEventCallback): this;
-    /**
-     * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter) method
-     * See FCTYPE in ./src/main/Constants.ts for all possible event names
-     */
-    on(event: ClientEventName, listener: ClientEventCallback): this;
-    /**
-     * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter) method
-     * See FCTYPE in ./src/main/Constants.ts for all possible event names
-     */
-    once(event: ClientEventName, listener: ClientEventCallback): this;
-    prependListener(event: ClientEventName, listener: ClientEventCallback): this;
-    prependOnceListener(event: ClientEventName, listener: ClientEventCallback): this;
-    /**
-     * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter) method
-     * See FCTYPE in ./src/main/Constants.ts for all possible event names
-     */
-    removeListener(event: ClientEventName, listener: ClientEventCallback): this;
-    removeAllListeners(event?: ClientEventName): this;
-    getMaxListeners(): number;
-    setMaxListeners(n: number): this;
-    listeners(event: ClientEventName): ClientEventCallback[];
-    emit(event: ClientEventName, ...args: Array<Packet | Boolean>): boolean;
-    eventNames(): ClientEventName[];
-    listenerCount(type: ClientEventName): number;
-    rawListeners(event: ClientEventName): ClientEventCallback[];
     /**
      * Current server connection state:
      * - IDLE: Not currently connected to MFC and not trying to connect
@@ -136,8 +125,14 @@ export declare class Client extends EventEmitter {
     /**
      * Returns headers required to authenticate an HTTP request to
      * MFC's web servers.
+     * @deprecated
      */
     readonly httpHeaders: object;
+    /**
+     * Returns headers required to authenticate an HTTP request to
+     * MFC's web servers.
+     */
+    getHttpHeaders(): Promise<object>;
     /**
      * Tokens available on this account
      */
@@ -236,23 +231,6 @@ export declare class Client extends EventEmitter {
     /**
      * Internal MFCAuto use only
      *
-     * Dynamically loads script code from MFC, massaging it with the given massager
-     * function first, and then passes the resulting instantiated object to the
-     * given callback.
-     *
-     * We try to use this sparingly as it opens us up to breaks from site changes.
-     * But it is still useful for the more complex or frequently updated parts
-     * of MFC.
-     * @param url URL from which to load the site script
-     * @param massager Post-processor function that takes the raw site script and
-     * converts/massages it to a usable form.
-     * @returns A promise that resolves with the object loaded from site code
-     * @access private
-     */
-    private _loadFromMFC(url, massager?);
-    /**
-     * Internal MFCAuto use only
-     *
      * Loads the emote parsing code from the MFC web site directly, if it's not
      * already loaded, and then invokes the given callback.  This is useful because
      * most scripts won't actually need the emote parsing capabilities, so lazy
@@ -268,7 +246,7 @@ export declare class Client extends EventEmitter {
     /**
      * Internal MFCAuto use only
      *
-     * Loads the lastest server information from MFC, if it's not already loaded
+     * Loads the latest server information from MFC, if it's not already loaded
      * @returns A promise that resolves when this.serverConfig has been initialized
      * @access private
      */
@@ -295,13 +273,47 @@ export declare class Client extends EventEmitter {
      */
     TxPacket(packet: Packet): void;
     /**
-     * Takes a number that might be a user id or a room id and converts
-     * it to a user id (if necessary). The functionality here maps to
-     * MFC's GetRoomOwnerId() within top.js
+     * Takes a number that might be a user id or a room/channel id and converts
+     * it to a user id (if necessary)
+     * @param id A number that is either a model ID or room/channel ID
+     * @returns The model ID corresponding to the given id
+     */
+    toUserId(id: number): number;
+    /**
+     * Takes a number that might be a user id or a room/channel id and converts
+     * it to a user id (if necessary)
      * @param id A number that is either a model ID or room/channel ID
      * @returns The model ID corresponding to the given id
      */
     static toUserId(id: number): number;
+    /**
+     * Takes a number that might be a room/channel id or a user id and
+     * converts it to a channel id of the given type, FreeChat by default,
+     * if necessary
+     * @param id A number that is either a room/channel ID or a model ID
+     * @param type The type of channel ID to return (FreeChat/Private/Group/Club). Default is FreeChat.
+     */
+    toChannelId(id: number, type?: constants.ChannelType): number;
+    /**
+     * Takes a room/channel id and returns its type, or "undefined"
+     * if the given id was a user id and not a channel id
+     * @param channelId A chat channel id
+     */
+    getChannelType(channelId: number): constants.ChannelType | undefined;
+    /**
+     * Internal helper function that checks if the given
+     * id is a model id or channel id. If it's a channel
+     * id, that channel id is returned unchanged. If it's
+     * a model id, her corresponding FreeChat channel id
+     * is returned instead.
+     * @param id A model or channel id
+     */
+    private _toFreeIfModel(id);
+    /**
+     * Internal helper function
+     * Finds the right channel to join for a given model
+     */
+    protected _negotiateChannelForJoining(cid: number, mid: number): number;
     /**
      * Takes a number that might be a user id or a room id and converts
      * it to a room id (if necessary)
@@ -350,8 +362,137 @@ export declare class Client extends EventEmitter {
      * @param id Model ID to tip
      * @param amount Token value to tip
      * @param options Options bag to specify various options about the tip
+     * @returns A promise that resolves after the tip response is received
      */
     sendTip(id: number, amount: number, options: TipOptions): Promise<string>;
+    /**
+     * Internal MFCAuto use only
+     *
+     * Logs in to MFCShare with this client's credentials and
+     * populates a CookieJar with a variety of auth tokens returned
+     * by the server's response.
+     */
+    private _shareLogin();
+    /**
+     * Internal MFCAuto use only
+     *
+     * Returns the prefix and slug given an MFC Share voucher url or Share thing url
+     * @param thingUrl MFC Share voucher url or Share thing url
+     * @returns A promise that resolves with an Object with two keys: prefix & slug
+     */
+    private _getSharePrefixSlugFromUrl(thingUrl);
+    /**
+     * Internal MFCAuto use only
+     *
+     * Queries for share thing details & purchase status given a prefix & slug
+     * @param prefixSlug An Object with two keys: prefix & slug
+     * @returns A promise that resolves with a ShareThingExtended object
+     */
+    private _getShareThingPurchaseStatus(prefixSlug);
+    /**
+     * Retrieves a model's MFC Share 'things'
+     * @param model
+     * @returns A promise that resolves with an array of ShareThings objects
+     */
+    getShareThings(model: Model | number): Promise<ShareThing[]>;
+    /**
+     * Given the url to an MFC Share item, this will return all the ShareThings
+     * that can be purchased directly on that page.
+     * @param thingUrl url to a MFC Share thing
+     * @returns A promise that resolves with a ShareThingExtended object
+     */
+    getShareThingsFromUrl(thingUrl: string): Promise<ShareThingExtended[]>;
+    /**
+     * Given a ShareThing, this function will resolve to true if the current account
+     * already owns the thing, or false if not.
+     * @param thing A single ShareThing or a url to the Share page for a single Share thing or Voucher url
+     * @returns A promise resolving true or false
+     */
+    isShareThingOwned(thing: ShareThingExtended | string): Promise<boolean>;
+    /**
+     * buyShareThing will attempt to purchase the given ShareThing
+     * using the account credentials specified on Client construction.
+     * This *will* spend tokens if you have them. The token amount
+     * to be spent can be found on thing.token_amount.
+     * @param thing The ShareThing to buy
+     * @returns A promise that resolves on successful purchase
+     */
+    buyShareThing(thing: ShareThingExtended, options?: SharePurchaseOptions): Promise<void>;
+    /**
+     * redeemShareVoucher will attempt to redeem the given MFC Share
+     * voucher url using the account credentials specified on Client
+     * construction.
+     *
+     * The returned promise will reject if you've already redeemed
+     * the voucher, or the url was invalid, or you are not logged in.
+     * @param voucherUrl Full url of the share voucher to redeem
+     * @returns A promise that resolves on successful redemption
+     */
+    redeemShareVoucher(voucherUrl: string): Promise<void>;
+    /**
+     * Internal MFCAuto use only
+     *
+     * Ban/Mute/Unban/Umute/Kick a user from a model's room where Client is Room Helper
+     * @param id Model's MFC ID
+     * @param action "ban", "mute", "unban", "unmute", "kick"
+     * @param userIdOrNm User's MFC ID or username
+     * @param clearchat true or false (optional: default is false)
+     * @return {Promise} Promise that resolves if successful, rejects upon failure
+     */
+    private _rhModAction(id, action, userIdOrNm, clearchat?);
+    /**
+     * Ban a user from a model's room where Client is Room Helper
+     * @param id Model's MFC ID
+     * @param userIdOrNm User's MFC ID or username
+     * @param clearchat true or false (optional: default is false)
+     * @return {Promise} Promise resolving with success message or rejecting with error message
+     */
+    banUser(id: number, userIdOrNm: number | string, clearchat?: boolean): Promise<Packet | string>;
+    /**
+     * Unban a user from a Model's room where Client is Room Helper
+     * @param id Model"s MFC ID
+     * @param userIdOrNm User"s MFC ID or username
+     * @return {Promise} Promise resolving with success message or rejecting with error message
+     */
+    unBanUser(id: number, userIdOrNm: number | string): Promise<Packet | string>;
+    /**
+     * Mute a user from a Model's room where Client is Room Helper
+     * @param userIdOrNm User's MFC ID or username
+     * @param id Model's MFC ID
+     * @param clearchat true or false (optional: default is false)
+     * @return {Promise} Promise resolving with success message or rejecting with error message
+     */
+    muteUser(id: number, userIdOrNm: number | string, clearchat?: boolean): Promise<Packet | string>;
+    /**
+     * Unmute a user from a Model's room where Client is Room Helper
+     * @param userIdOrNm User's MFC ID or username
+     * @param id Model's MFC ID
+     * @return {Promise} Promise resolving with success message or rejecting with error message
+     */
+    unMuteUser(id: number, userIdOrNm: number | string): Promise<Packet | string>;
+    /**
+     * Kick a user from a Model's room where Client is Room Helper
+     * @param userIdOrNm User's MFC ID or username
+     * @param id Model's MFC ID
+     * @return {Promise} Promise resolving with success message or rejecting with error message
+     */
+    kickUser(id: number, userIdOrNm: number | string): Promise<Packet | string>;
+    /**
+     * Set room topic for a model where Client is Room Helper
+     * @param id Model's MFC ID
+     * @param topic New topic
+     * @return {Promise} Promise that resolves if successful, rejects upon failure
+     */
+    setTopic(id: number, topic: string): Promise<Packet | string>;
+    /**
+     * Start/adjust/stop a model's countdown where Client is Room Helper
+     * @param id Model's MFC ID
+     * @param total Total number of tokens in countdown
+     * @param countdown true if countdown is active, false to end countdown (optional)
+     * @param sofar Number of tokens tipped so far in countdown (optional)
+     * @return {Promise} Promise that resolves if successful, rejects upon failure
+     */
+    setCountdown(id: number, total: number, countdown?: boolean, sofar?: number): Promise<Packet | string>;
     /**
      * Retrieves all token sessions for the year and month that the given
      * date is from. The specific day or time doesn't matter. It returns
@@ -423,6 +564,7 @@ export declare class Client extends EventEmitter {
     getChatLogs(startDate: Date, endDate?: Date, userId?: number): Promise<Array<ChatLog>>;
     /**
      * Joins the public chat room of the given model
+     * or the given channel ID
      * @param id Model ID or room/channel ID to join
      * @returns A promise that resolves after successfully
      * joining the chat room and rejects if the join fails
@@ -432,6 +574,7 @@ export declare class Client extends EventEmitter {
     joinRoom(id: number): Promise<Packet>;
     /**
      * Leaves the public chat room of the given model
+     * or the given chat channel
      * @param id Model ID or room/channel ID to leave
      * @returns A promise that resolves immediately
      */
@@ -615,19 +758,22 @@ export declare class Client extends EventEmitter {
      */
     disconnect(): Promise<void>;
     /**
-     * Pretty much what you think it is...
-     * Most everyone already knows this logic, the new thing here is
-     * support the high def (1080p) OBS based streams. A new feature
-     * on MFC as of 2018/03/23.
+     * Retrieves the HLS url for the given model (free chat only)
      * @param model
+     * @returns A string containing the HLS url for model's free chat broadcast
      */
     getHlsUrl(model: Model | number): string | undefined;
+    /**
+     * Retrieves passcode for client
+     * @returns A promise that resolves with a string containing client's passcode
+     */
+    getPassCode(): Promise<string>;
 }
 export declare type ClientEventCallback = ((packet: Packet) => void) | (() => void);
 /** Possible Client states */
 export declare type ClientStates = "IDLE" | "PENDING" | "ACTIVE";
 /** Possible Client events */
-export declare type ClientEventName = "CLIENT_MANUAL_DISCONNECT" | "CLIENT_DISCONNECTED" | "CLIENT_MODELSLOADED" | "CLIENT_CONNECTED" | "ANY" | "UNKNOWN" | "NULL" | "LOGIN" | "ADDFRIEND" | "PMESG" | "STATUS" | "DETAILS" | "TOKENINC" | "ADDIGNORE" | "PRIVACY" | "ADDFRIENDREQ" | "USERNAMELOOKUP" | "ZBAN" | "BROADCASTNEWS" | "ANNOUNCE" | "MANAGELIST" | "INBOX" | "GWCONNECT" | "RELOADSETTINGS" | "HIDEUSERS" | "RULEVIOLATION" | "SESSIONSTATE" | "REQUESTPVT" | "ACCEPTPVT" | "REJECTPVT" | "ENDSESSION" | "TXPROFILE" | "STARTVOYEUR" | "SERVERREFRESH" | "SETTING" | "BWSTATS" | "TKX" | "SETTEXTOPT" | "SERVERCONFIG" | "MODELGROUP" | "REQUESTGRP" | "STATUSGRP" | "GROUPCHAT" | "CLOSEGRP" | "UCR" | "MYUCR" | "SLAVECON" | "SLAVECMD" | "SLAVEFRIEND" | "SLAVEVSHARE" | "ROOMDATA" | "NEWSITEM" | "GUESTCOUNT" | "PRELOGINQ" | "MODELGROUPSZ" | "ROOMHELPER" | "CMESG" | "JOINCHAN" | "CREATECHAN" | "INVITECHAN" | "KICKCHAN" | "QUIETCHAN" | "BANCHAN" | "PREVIEWCHAN" | "SHUTDOWN" | "LISTBANS" | "UNBAN" | "SETWELCOME" | "CHANOP" | "LISTCHAN" | "TAGS" | "SETPCODE" | "SETMINTIP" | "UEOPT" | "HDVIDEO" | "METRICS" | "OFFERCAM" | "REQUESTCAM" | "MYWEBCAM" | "MYCAMSTATE" | "PMHISTORY" | "CHATFLASH" | "TRUEPVT" | "BOOKMARKS" | "EVENT" | "STATEDUMP" | "RECOMMEND" | "EXTDATA" | "NOTIFY" | "PUBLISH" | "XREQUEST" | "XRESPONSE" | "EDGECON" | "ZGWINVALID" | "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "LOGOUT";
+export declare type ClientEventName = "CLIENT_MANUAL_DISCONNECT" | "CLIENT_DISCONNECTED" | "CLIENT_MODELSLOADED" | "CLIENT_CONNECTED" | "ANY" | "UNKNOWN" | "NULL" | "LOGIN" | "ADDFRIEND" | "PMESG" | "STATUS" | "DETAILS" | "TOKENINC" | "ADDIGNORE" | "PRIVACY" | "ADDFRIENDREQ" | "USERNAMELOOKUP" | "ZBAN" | "BROADCASTNEWS" | "ANNOUNCE" | "MANAGELIST" | "INBOX" | "GWCONNECT" | "RELOADSETTINGS" | "HIDEUSERS" | "RULEVIOLATION" | "SESSIONSTATE" | "REQUESTPVT" | "ACCEPTPVT" | "REJECTPVT" | "ENDSESSION" | "TXPROFILE" | "STARTVOYEUR" | "SERVERREFRESH" | "SETTING" | "BWSTATS" | "TKX" | "SETTEXTOPT" | "SERVERCONFIG" | "MODELGROUP" | "REQUESTGRP" | "STATUSGRP" | "GROUPCHAT" | "CLOSEGRP" | "UCR" | "MYUCR" | "SLAVECON" | "SLAVECMD" | "SLAVEFRIEND" | "SLAVEVSHARE" | "ROOMDATA" | "NEWSITEM" | "GUESTCOUNT" | "PRELOGINQ" | "MODELGROUPSZ" | "ROOMHELPER" | "CMESG" | "JOINCHAN" | "CREATECHAN" | "INVITECHAN" | "KICKCHAN" | "QUIETCHAN" | "BANCHAN" | "PREVIEWCHAN" | "SHUTDOWN" | "LISTBANS" | "UNBAN" | "SETWELCOME" | "CHANOP" | "LISTCHAN" | "TAGS" | "SETPCODE" | "SETMINTIP" | "UEOPT" | "HDVIDEO" | "METRICS" | "OFFERCAM" | "REQUESTCAM" | "MYWEBCAM" | "MYCAMSTATE" | "PMHISTORY" | "CHATFLASH" | "TRUEPVT" | "BOOKMARKS" | "EVENT" | "STATEDUMP" | "RECOMMEND" | "EXTDATA" | "NOTIFY" | "PUBLISH" | "XREQUEST" | "XRESPONSE" | "EDGECON" | "CLUBSHOW" | "CLUBCMD" | "ZGWINVALID" | "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "LOGOUT";
 export interface ServerConfig {
     ajax_servers: string[];
     chat_servers: string[];
@@ -656,6 +802,7 @@ export interface ClientOptions {
     connectionTimeout?: number;
     modernLogin?: boolean;
     preserveHtml?: boolean;
+    forceUnhashedPassword?: boolean;
 }
 export interface TipOptions {
     anonymous?: 0 | 1;
@@ -667,7 +814,7 @@ export interface TipOptions {
 }
 export interface TokenSession {
     date: Date;
-    type: "Tip" | "Voyeur" | "Private" | "MFC Share" | "Token Transfer (Received)" | "Token Transfer (Sent)" | string;
+    type: "Tip" | "Group" | "Voyeur" | "Private" | "MFC Share" | "Token Transfer (Received)" | "Token Transfer (Sent)" | string;
     recipient: string;
     tokens: number;
     comment?: string;
@@ -685,4 +832,77 @@ export interface ChatLog {
     logDate: Date;
     videoUrl?: string;
     lines: Array<ChatLine>;
+}
+export interface TopicOptions {
+    model: number;
+    type: constants.FCTYPE.SETWELCOME | number;
+    topic: string;
+}
+export interface CountdownOptions {
+    model: number;
+    type: constants.FCTYPE.ROOMDATA | number;
+    total: number;
+    sofar: number;
+    countdown?: boolean;
+    src?: "update" | "notify" | string;
+}
+export interface BanOptions {
+    model: number;
+    op: "ban" | "unban" | "mute" | "unmute" | "kick" | string;
+    type: constants.FCTYPE.ZBAN | constants.FCTYPE.CHANOP | number;
+    username?: string;
+    sid?: number;
+    clearchat?: 0 | 1;
+    ztype?: "m" | string;
+    chan?: number;
+    users?: string[] | number[];
+}
+export interface PrefixSlug {
+    prefix: "a" | "c" | "s" | "m" | "p" | "t" | string;
+    slug: string;
+}
+export interface ShareThing {
+    id: number;
+    slug: string;
+    title: string;
+    thumbnail: string;
+    token_amount: null | number;
+    type: "Album" | "Collection" | "Item" | "Club" | "Poll" | "Story" | string;
+    prefix: "a" | "c" | "s" | "m" | "p" | "t" | string;
+    url: string;
+    created_at: string;
+    count_text?: string;
+    duration_text?: string;
+    option?: string;
+    color?: string;
+    color_faded?: string;
+}
+export interface ShareThingExtended extends ShareThing {
+    price_type: "Album" | "Collection" | "Club" | "Clubprice" | "Item" | "Story" | "PollOption" | string;
+    bought: false | string;
+    description?: string;
+    fulfillment_info_enabled?: boolean;
+    note_enabled?: boolean;
+    cache_buster: string;
+    show_username_string: "Club" | "Item" | null | string;
+    login_required: boolean;
+    cookies_present: boolean;
+}
+export interface ShareThings {
+    things: ShareThing[];
+    model: {
+        nick: string;
+        avatar: string;
+        url: string;
+    };
+}
+export interface SharePurchaseOptions {
+    /** Message to model */
+    tip_message?: string;
+    /** If true, "Auto-Renew my Membership". Default false. */
+    recurring?: boolean | string;
+    /** Allow Club E-Mails from model */
+    email?: boolean | string;
+    /** If true, "Don't show my username on the page". Default false. */
+    hidden_by_user?: boolean | string;
 }

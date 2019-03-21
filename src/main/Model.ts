@@ -1,18 +1,10 @@
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const Utils_1 = require("./Utils");
-const RefinedEventEmitter_1 = require("./RefinedEventEmitter");
-const Constants_1 = require("./Constants");
-const assert = require("assert");
-const request = require("request-promise-native");
+import { LogLevel, logWithLevelInternal as logl } from "./Utils";
+import { RefinedEventEmitter } from "./RefinedEventEmitter";
+import { STATE, FCVIDEO, FCOPT, FCLEVEL } from "./Constants";
+import { Message, BaseMessage, ModelDetailsMessage, UserDetailsMessage, SessionDetailsMessage, MfcShareDetailsMessage, UnknownJsonField } from "./sMessages";
+import * as assert from "assert";
+import * as request from "request-promise-native";
+
 /**
  * Model represents a single MFC model. The Model constructor also serves as a
  * static repository of all models.
@@ -32,7 +24,109 @@ const request = require("request-promise-native");
  * throttles the display of updates from the server. MFCAuto has no such
  * limitations.
  */
-class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
+export class Model extends RefinedEventEmitter<ModelEventName, ModelEventCallback, UnknownJsonField | string[]> {
+    /** The model's user id */
+    public uid: number;
+
+    /** The model's name */
+    public nm: string | undefined;
+
+    /** The model's Tags */
+    public tags: string[] = [];
+
+    /**
+     * Map of SessionID->full state for that session, for all known sessions for
+     * this model.
+     *
+     * Use the .bestSessionId or .bestSession properties to find the most correct
+     * session for all-up status reporting.
+     *
+     * Models, and other members, can be logged on more than once. For example, in
+     * multiple browsers, etc. In those cases, we'll be getting distinct FCVIDEO
+     * state updates from each session. And it's not accurate to report only the
+     * most recently seen video state. For example, a model might be in free chat
+     * and open another browser window to check her email or current rank. Then
+     * she closes the secondary browser window and we get a sessionstate updated
+     * saying that second session is now Offline, but she never left cam in her
+     * original session. It's incorrect to say she's offline now. So State is not
+     * as simple as a single value, and we must track all known sessions for each
+     * member.
+     * @access private
+     */
+    public readonly knownSessions: Map<number, ModelSessionDetails> = new Map();
+
+    private static readonly whenMap: Map<whenFilter, whenMapEntry> = new Map();
+    private readonly whenMap: Map<whenFilter, whenMapEntry> = new Map();
+
+    // #region Static EventEmitter methods
+    // EventEmitter object to be used for events firing for all models
+    private static readonly eventsForAllModels = new RefinedEventEmitter<ModelEventName, ModelEventCallback, UnknownJsonField | string[]>();
+
+    // Expose the "all model" events as constructor properies to be accessed
+    // like Model.on(...)
+    public static addListener = (event: ModelEventName, listener: ModelEventCallback) => Model.eventsForAllModels.addListener(event, listener);
+    /**
+     * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter)
+     * method that registers a callback for model change events.
+     *
+     * This variant will listen for changes on *all* models. To listen for
+     * changes on one specific model use the [model.on instance method](#modelon)
+     * @param event "uid", "tags", "nm" or any of the property names of
+     * [model.bestSession](#modelbestsession)
+     * @param listener A callback to be invoked whenever the property indicated
+     * by the event name changes for any model. The callback will be given 3
+     * parameters: the model instance that changed, the value of the property
+     * before the change, and the value of the property after the change:
+     * @example
+     * // Print to the console whenever any model's video state changes
+     * const mfc = require("MFCAuto");
+     * const client = new mfc.Client();
+     *
+     * mfc.Model.on("vs", (model, before, after) => {
+     *      console.log(`${model.nm}'s state changed to ${mfc.STATE[after]}`);
+     * });
+     *
+     * client.connect();
+     */
+    public static on = (event: ModelEventName, listener: ModelEventCallback) => Model.eventsForAllModels.on(event, listener);
+    /**
+     * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter)
+     * method like Model.on but the registered callback is only invoked once,
+     * on the first instance of the given event
+     * @param event "uid", "tags", "nm" or any of the property names of
+     * [model.bestSession](#modelbestsession)
+     * @param listener A callback to be invoked whenever the property indicated
+     * by the event name changes for any model. The callback will be given 3
+     * parameters: the model instance that changed, the value of the property
+     * before the change, and the value of the property after the change:
+     */
+    public static once = (event: ModelEventName, listener: ModelEventCallback) => Model.eventsForAllModels.once(event, listener);
+    public static prependListener = (event: ModelEventName, listener: ModelEventCallback) => Model.eventsForAllModels.prependListener(event, listener);
+    public static prependOnceListener = (event: ModelEventName, listener: ModelEventCallback) => Model.eventsForAllModels.prependOnceListener(event, listener);
+    /**
+     * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter)
+     * method that removes a listener callback previously registered with
+     * Model.on or Model.once
+     */
+    public static removeListener = (event: ModelEventName, listener: ModelEventCallback) => Model.eventsForAllModels.removeListener(event, listener);
+    public static removeAllListeners = (event: ModelEventName) => Model.eventsForAllModels.removeAllListeners(event);
+    public static getMaxListeners = () => Model.eventsForAllModels.getMaxListeners();
+    public static setMaxListeners = (n: number) => Model.eventsForAllModels.setMaxListeners(n);
+    public static listeners = (event: ModelEventName) => Model.eventsForAllModels.listeners(event);
+    public static emit = (event: ModelEventName, ...args: Array<UnknownJsonField | string[]>) => Model.eventsForAllModels.emit(event, ...args);
+    public static eventNames = () => Model.eventsForAllModels.eventNames();
+    public static listenerCount = (event: ModelEventName) => Model.eventsForAllModels.listenerCount(event);
+    public static rawListeners = (event: ModelEventName) => Model.eventsForAllModels.rawListeners(event);
+    // #endregion
+
+    /**
+     * Map of all known models that is built up as we receive model
+     * information from the server. This should not usually be accessed
+     * directly. If you wish to access a specific model, use
+     * [Model.getModel](#modelgetmodelid-createifnecessary) instead.
+     */
+    public static readonly knownModels: Map<number, Model> = new Map();
+
     /* // Intentionally not a JSDoc so that our doc generator tool ignores this
      * Internal MFCAuto use only
      *
@@ -44,33 +138,11 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * @access private
      * @ignore
      */
-    constructor(uid) {
+    constructor(uid: number) {
         super();
-        /** The model's Tags */
-        this.tags = [];
-        /**
-         * Map of SessionID->full state for that session, for all known sessions for
-         * this model.
-         *
-         * Use the .bestSessionId or .bestSession properties to find the most correct
-         * session for all-up status reporting.
-         *
-         * Models, and other members, can be logged on more than once. For example, in
-         * multiple browsers, etc. In those cases, we'll be getting distinct FCVIDEO
-         * state updates from each session. And it's not accurate to report only the
-         * most recently seen video state. For example, a model might be in free chat
-         * and open another browser window to check her email or current rank. Then
-         * she closes the secondary browser window and we get a sessionstate updated
-         * saying that second session is now Offline, but she never left cam in her
-         * original session. It's incorrect to say she's offline now. So State is not
-         * as simple as a single value, and we must track all known sessions for each
-         * member.
-         * @access private
-         */
-        this.knownSessions = new Map();
-        this.whenMap = new Map();
         this.uid = uid;
     }
+
     /**
      * Retrieves a specific model instance by user id from knownModels, creating
      * the model instance if it does not already exist.
@@ -87,20 +159,18 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * @returns The Model instance for the given model, or undefined if the model
      * does not exist and createIfNecessary was False
      */
-    static getModel(id, createIfNecessary = true) {
-        if (typeof id === "string") {
-            id = parseInt(id);
-        }
+    public static getModel(id: string | number, createIfNecessary: boolean = true): Model | undefined {
+        if (typeof id === "string") { id = parseInt(id); }
         if (Model.knownModels.has(id)) {
             return Model.knownModels.get(id);
-        }
-        else if (createIfNecessary) {
-            Utils_1.logWithLevelInternal(Utils_1.LogLevel.DEBUG, () => `[MODEL] Creating model ${id}`);
+        } else if (createIfNecessary) {
+            logl(LogLevel.DEBUG, () => `[MODEL] Creating model ${id}`);
             Model.knownModels.set(id, new Model(id));
             return Model.knownModels.get(id);
         }
         return undefined;
     }
+
     /**
      * Retrieves a list of models matching the given filter
      * @param filter A filter function that takes a Model instance and returns
@@ -108,15 +178,18 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * False
      * @returns An array of Model instances matching the filter function
      */
-    static findModels(filter) {
-        const models = [];
+    public static findModels(filter: (model: Model) => boolean): Model[] {
+        const models: Model[] = [];
+
         Model.knownModels.forEach((m) => {
             if (filter(m)) {
                 models.push(m);
             }
         });
+
         return models;
     }
+
     /**
      * The most accurate session ID for this model
      *
@@ -129,11 +202,11 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * sessions. Otherwise, if all sessions are offline, return 0.
      * @access private
      */
-    get bestSessionId() {
-        let sessionIdToUse = 0;
-        let foundModelSoftware = false;
+    get bestSessionId(): number {
+        let sessionIdToUse: number = 0;
+        let foundModelSoftware: boolean = false;
         this.knownSessions.forEach((sessionObj, sessionId) => {
-            if (sessionObj.vs === Constants_1.STATE.Offline) {
+            if (sessionObj.vs === STATE.Offline) {
                 return; // Don't consider offline sessions
             }
             let useThis = false;
@@ -142,13 +215,11 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
                     if (sessionId > sessionIdToUse) {
                         useThis = true;
                     }
-                }
-                else {
+                } else {
                     foundModelSoftware = true;
                     useThis = true;
                 }
-            }
-            else if (!foundModelSoftware && sessionId > sessionIdToUse) {
+            } else if (!foundModelSoftware && sessionId > sessionIdToUse) {
                 useThis = true;
             }
             if (useThis) {
@@ -157,6 +228,7 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
         });
         return sessionIdToUse;
     }
+
     /**
      * The most accurate session for this model
      *
@@ -214,13 +286,14 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * |uid|number|The model's user ID
      * |vs|A number mapping to FCVIDEO (see Contants.ts) or the more friendly form, STATE (see Contants.ts)|The general status of a model (online, offline, away, freechat, private, or groupshow). There are many other status possibilities, but those are the ones you likely care about.
      */
-    get bestSession() {
+    get bestSession(): ModelSessionDetails {
         let session = this.knownSessions.get(this.bestSessionId);
         if (session === undefined) {
-            session = { sid: 0, uid: this.uid, vs: Constants_1.STATE.Offline };
+            session = { sid: 0, uid: this.uid, vs: STATE.Offline };
         }
         return session;
     }
+
     /**
      * Internal MFCAuto use only
      *
@@ -228,8 +301,8 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * @param newTags Tags to be merged
      * @access private
      */
-    mergeTags(newTags) {
-        Utils_1.logWithLevelInternal(Utils_1.LogLevel.TRACE, () => `[MODEL] mergeTags begin: ${JSON.stringify(this.toCore())}`);
+    public mergeTags(newTags: string[]) {
+        logl(LogLevel.TRACE, () => `[MODEL] mergeTags begin: ${JSON.stringify(this.toCore())}`);
         if (Array.isArray(newTags)) {
             const oldTags = this.tags.slice();
             this.tags = Array.from(new Set(this.tags.concat(newTags))).sort();
@@ -239,8 +312,9 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
             Model.emit("ANY", this, oldTags, this.tags);
             this.processWhens(newTags);
         }
-        Utils_1.logWithLevelInternal(Utils_1.LogLevel.TRACE, () => `[MODEL] mergeTags end: ${JSON.stringify(this.toCore())}`);
+        logl(LogLevel.TRACE, () => `[MODEL] mergeTags end: ${JSON.stringify(this.toCore())}`);
     }
+
     /**
      * Internal MFCAuto use only
      *
@@ -253,32 +327,36 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * @param msg Message object to be merged
      * @access private
      */
-    merge(msg) {
+    public merge(msg: Message): void {
         if (typeof msg !== "object") {
-            Utils_1.logWithLevelInternal(Utils_1.LogLevel.DEBUG, () => `[MODEL] merge received an invalid message ${this.uid}`);
+            logl(LogLevel.DEBUG, () => `[MODEL] merge received an invalid message ${this.uid}`);
             return;
-        }
-        else {
+        } else {
             msg = Object.assign({}, msg);
         }
-        Utils_1.logWithLevelInternal(Utils_1.LogLevel.TRACE, () => `[MODEL] merge begin: ${JSON.stringify(this.toCore())}`);
+        logl(LogLevel.TRACE, () => `[MODEL] merge begin: ${JSON.stringify(this.toCore())}`);
+
         // Find the session being updated by this message
         const previousSession = this.bestSession;
         const currentSessionId = msg.sid !== undefined ? msg.sid : 0;
         if (!this.knownSessions.has(currentSessionId)) {
-            this.knownSessions.set(currentSessionId, { sid: currentSessionId, uid: this.uid, vs: Constants_1.STATE.Offline });
+            this.knownSessions.set(currentSessionId, { sid: currentSessionId, uid: this.uid, vs: STATE.Offline });
         }
-        const currentSession = this.knownSessions.get(currentSessionId);
-        const callbackStack = [];
+        const currentSession = this.knownSessions.get(currentSessionId) as ModelSessionDetails;
+
+        const callbackStack: mergeCallbackPayload[] = [];
+
         // Merge the updates into the correct session
         assert.notStrictEqual(msg, undefined);
         assert.ok(msg.uid === undefined || this.uid === msg.uid, "Merging a message meant for a different model!: " + JSON.stringify(msg));
+
         // If we got a level update
         if (msg.lv !== undefined) {
             // from a non-model
-            if (msg.lv !== Constants_1.FCLEVEL.MODEL) {
-                assert.notStrictEqual(previousSession.lv, Constants_1.FCLEVEL.MODEL, `A model changed from FCLEVEL.MODEL to ${Constants_1.FCLEVEL[msg.lv]} (${msg.lv})? Should not be possible and indicates a serious bug!`);
-                Utils_1.logWithLevelInternal(Utils_1.LogLevel.DEBUG, () => `[MODEL] merge found that ${this.uid} was a level ${previousSession.lv} and not a model, unlinking`);
+            if (msg.lv !== FCLEVEL.MODEL) {
+                assert.notStrictEqual(previousSession.lv, FCLEVEL.MODEL, `A model changed from FCLEVEL.MODEL to ${FCLEVEL[msg.lv]} (${msg.lv})? Should not be possible and indicates a serious bug!`);
+                logl(LogLevel.DEBUG, () => `[MODEL] merge found that ${this.uid} was a level ${previousSession.lv} and not a model, unlinking`);
+
                 // Clear any registered callbacks and remove this member from
                 // the global registry.
                 this.removeAllListeners();
@@ -287,6 +365,7 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
                 return;
             }
         }
+
         for (const key in msg) {
             // Rip out the sMessage.u|m|s properties and put them on the session at
             // the top level.  This allows for listening on simple event
@@ -301,22 +380,20 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
                         callbackStack.push({ prop: key2, oldstate: previousSession[key2], newstate: details[key2] });
                         currentSession[key2] = details[key2];
                         if (key === "m" && key2 === "flags") {
-                            const rawFlags = details.flags;
+                            const rawFlags = (details as ModelDetailsMessage).flags;
                             if (rawFlags !== undefined) {
-                                currentSession.truepvt = ((rawFlags & Constants_1.FCOPT.TRUEPVT) !== 0) ? 1 : 0;
-                                currentSession.guests_muted = ((rawFlags & Constants_1.FCOPT.GUESTMUTE) !== 0) ? 1 : 0;
-                                currentSession.basics_muted = ((rawFlags & Constants_1.FCOPT.BASICMUTE) !== 0) ? 1 : 0;
-                                currentSession.model_sw = ((rawFlags & Constants_1.FCOPT.MODELSW) !== 0) ? 1 : 0;
+                                currentSession.truepvt = ((rawFlags & FCOPT.TRUEPVT) !== 0) ? 1 : 0;
+                                currentSession.guests_muted = ((rawFlags & FCOPT.GUESTMUTE) !== 0) ? 1 : 0;
+                                currentSession.basics_muted = ((rawFlags & FCOPT.BASICMUTE) !== 0) ? 1 : 0;
+                                currentSession.model_sw = ((rawFlags & FCOPT.MODELSW) !== 0) ? 1 : 0;
                                 // @TODO - @BUGBUG - We should be firing change events for these fields too
                             }
                         }
                     }
-                }
-                else {
+                } else {
                     assert.strictEqual(typeof details, "object", "Malformed Message? " + JSON.stringify(msg));
                 }
-            }
-            else if (key === "x") {
+            } else if (key === "x") {
                 const sites = msg[key];
                 if (typeof sites === "object") {
                     for (const key2 in sites) {
@@ -324,7 +401,7 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
                             continue;
                         }
                         if (typeof sites[key2] === "object") {
-                            const siteObject = sites[key2];
+                            const siteObject = sites[key2] as MfcShareDetailsMessage;
                             for (const key3 in siteObject) {
                                 if (!siteObject.hasOwnProperty(key3)) {
                                     continue;
@@ -337,21 +414,19 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
                                 callbackStack.push({ prop: newProp, oldstate: previousSession[newProp], newstate: siteObject[key3] });
                                 currentSession[newProp] = siteObject[key3];
                             }
-                        }
-                        else {
+                        } else {
                             assert.strictEqual(typeof sites[key2], "object", "Malformed Message? " + JSON.stringify(msg));
                         }
                     }
-                }
-                else {
+                } else {
                     assert.strictEqual(typeof sites, "object", "Malformed Message? " + JSON.stringify(msg));
                 }
-            }
-            else {
+            } else {
                 callbackStack.push({ prop: key, oldstate: previousSession[key], newstate: msg[key] });
                 currentSession[key] = msg[key];
             }
         }
+
         // If our "best" session has changed to a new session, the above
         // will capture any changed or added properties, but not the removed
         // properties, so we'll add callbacks for removed properties here...
@@ -362,6 +437,7 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
                 }
             });
         }
+
         // If, after all the changes have been applied, this new session is our "best" session,
         // fire our change events.
         //
@@ -377,45 +453,50 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
                 // scripts.
                 this.nm = this.bestSession.nm;
             }
-            callbackStack.forEach((item) => {
+            callbackStack.forEach((item: mergeCallbackPayload) => {
                 // But only if the state has changed. Otherwise the event is not really
                 // very useful, and, worse, it's very noisy in situations where you have
                 // multiple connected Client objects all updating the one true model
                 // registry with duplicated SESSIONSTATE events
                 if (item.oldstate !== item.newstate) {
-                    this.emit(item.prop, this, item.oldstate, item.newstate);
-                    Model.emit(item.prop, this, item.oldstate, item.newstate);
+                    this.emit(item.prop as ModelEventName, this, item.oldstate, item.newstate);
+                    Model.emit(item.prop as ModelEventName, this, item.oldstate, item.newstate);
                 }
             });
+
             // Also fire a generic ANY event signifying an generic update. This
             // event has different callback arguments than the other Model events,
             // it receives this model instance and the Message that changed the
             // instance.
             this.emit("ANY", this, msg);
             Model.emit("ANY", this, msg);
+
             // And also process any registered .when callbacks
             this.processWhens(msg);
         }
+
         this.purgeOldSessions();
-        Utils_1.logWithLevelInternal(Utils_1.LogLevel.TRACE, () => `[MODEL] merge end: ${JSON.stringify(this.toCore())}`);
+        logl(LogLevel.TRACE, () => `[MODEL] merge end: ${JSON.stringify(this.toCore())}`);
     }
+
     /**
      * Internal MFCAuto use only
      *
      * Removes old sessions that have gone offline
      * @access private
      */
-    purgeOldSessions() {
+    private purgeOldSessions(): void {
         // Session IDs will be in insertion order, first seen to latest (if the implementation follows the ECMAScript spec)
-        const sids = Array.from(this.knownSessions.keys());
+        const sids: Array<number> = Array.from(this.knownSessions.keys());
         const that = this;
         sids.forEach((sid) => {
             const session = that.knownSessions.get(sid);
-            if (session !== undefined && (session.vs === undefined || session.vs === Constants_1.FCVIDEO.OFFLINE)) {
+            if (session !== undefined && (session.vs === undefined || session.vs === FCVIDEO.OFFLINE)) {
                 that.knownSessions.delete(sid);
             }
         });
     }
+
     /**
      * Resets this model's state to the offline default
      *
@@ -424,28 +505,31 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * we had previously marked as being online.
      * @access private
      */
-    reset() {
+    public reset(): void {
         // Set all online sessions that are not the bestSession to offline
         this.knownSessions.forEach((details) => {
-            if (details.sid !== this.bestSessionId && details.vs !== Constants_1.FCVIDEO.OFFLINE) {
-                details.vs = Constants_1.FCVIDEO.OFFLINE;
+            if (details.sid !== this.bestSessionId && details.vs !== FCVIDEO.OFFLINE) {
+                details.vs = FCVIDEO.OFFLINE;
             }
         });
+
         // Merge an empty offline message into bestSession so that all the registered
         // event handlers for .bestSession property changes will be fired and user
         // scripts will have a chance to know they need to re-join rooms, etc, when
         // the connection is restored.
-        this.merge({ sid: this.bestSessionId, uid: this.uid, vs: Constants_1.FCVIDEO.OFFLINE });
+        this.merge({ sid: this.bestSessionId, uid: this.uid, vs: FCVIDEO.OFFLINE });
     }
+
     /**
      * Resets all models to offline
      * @access private
      */
-    static reset() {
+    public static reset(): void {
         Model.knownModels.forEach((m) => {
             m.reset();
         });
     }
+
     /**
      * Registers callback for when any Model starts matching a specific
      * condition and, optionally, when they then stop matching the
@@ -466,9 +550,10 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      *     (m) => console.log(`${m.nm} no longer has over 2000 viewers`)
      * );
      */
-    static when(condition, onTrue, onFalseAfterTrue) {
+    public static when(condition: whenFilter, onTrue: whenCallback, onFalseAfterTrue?: whenCallback): void {
         Model.whenMap.set(condition, { onTrue: onTrue, onFalseAfterTrue: onFalseAfterTrue, matchedSet: new Set() });
     }
+
     /**
      * Removes a when callback previously registered with Model.when
      * @param condition A Function that had previously been registered
@@ -476,9 +561,10 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * @returns True if the given function was successfully removed,
      * false if it was not found as a registered when callback
      */
-    static removeWhen(condition) {
+    public static removeWhen(condition: whenFilter): boolean {
         return Model.whenMap.delete(condition);
     }
+
     /**
      * Registers callback for when this model when starts matching a
      * specific condition and, optionally, when she then stops matching the
@@ -500,10 +586,11 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      *     (m) => console.log('AspenRae has logged off')
      * )
      */
-    when(condition, onTrue, onFalseAfterTrue) {
+    public when(condition: whenFilter, onTrue: whenCallback, onFalseAfterTrue?: whenCallback): void {
         this.whenMap.set(condition, { onTrue: onTrue, onFalseAfterTrue: onFalseAfterTrue, matchedSet: new Set() });
         this.processWhens();
     }
+
     /**
      * Removes a when callback previously registered with model.when
      * @param condition A Function that had previously been registered
@@ -511,9 +598,10 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * @returns True if the given function was successfully removed,
      * false if it was not found as a registered when callback
      */
-    removeWhen(condition) {
+    public removeWhen(condition: whenFilter): boolean {
         return this.whenMap.delete(condition);
     }
+
     /**
      * Internal MFCAuto use only
      *
@@ -523,16 +611,15 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * just merged into this model instance
      * @access private
      */
-    processWhens(payload) {
-        const processor = (actions, condition) => {
+    private processWhens(payload?: Message | string[]): void {
+        const processor = (actions: whenMapEntry, condition: whenFilter) => {
             if (condition(this)) {
                 // Only if we weren't previously matching this condition
                 if (!actions.matchedSet.has(this.uid)) {
                     actions.matchedSet.add(this.uid);
                     actions.onTrue(this, payload);
                 }
-            }
-            else {
+            } else {
                 // Only if we were previously matching this condition
                 // and we have an onFalseAfterTrue callback
                 if (actions.matchedSet.delete(this.uid) && actions.onFalseAfterTrue !== undefined) {
@@ -543,6 +630,7 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
         this.whenMap.forEach(processor);
         Model.whenMap.forEach(processor);
     }
+
     /**
      * Retrieves social media details for this model. This
      * will include any Twitter or Instagram account she has
@@ -550,28 +638,26 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
      * @returns A promise that resolves with a ModelSocialMedia
      * object or undefined
      */
-    getSocialMedia() {
-        return __awaiter(this, void 0, void 0, function* () {
-            let rawContents = "";
-            const url = `https://api.myfreecams.com/social_media/${this.uid}?&no_cache=${Math.random()}`;
-            try {
-                rawContents = (yield request(url).promise());
-                // tslint:disable-next-line:no-unsafe-any
-                let result = JSON.parse(rawContents).result;
-                // tslint:disable-next-line:no-null-keyword
-                if (result === null) {
-                    result = undefined;
-                }
-                return result;
+    public async getSocialMedia(): Promise<ModelSocialMedia | undefined> {
+        let rawContents: string = "";
+        const url = `https://api.myfreecams.com/social_media/${this.uid}?&no_cache=${Math.random()}`;
+        try {
+            rawContents = await request(url).promise() as string;
+            // tslint:disable-next-line:no-unsafe-any
+            let result: ModelSocialMedia | undefined = JSON.parse(rawContents).result;
+            // tslint:disable-next-line:no-null-keyword
+            if (result === null) {
+                result = undefined;
             }
-            catch (e) {
-                const contentsLogLimit = 80;
-                Utils_1.logWithLevelInternal(Utils_1.LogLevel.WARNING, () => `getSocialMedia error: ${e} - '${url}'\n\t${rawContents.slice(0, contentsLogLimit)}...`);
-                return undefined;
-            }
-        });
+            return result;
+        } catch (e) {
+            const contentsLogLimit = 80;
+            logl(LogLevel.WARNING, () => `getSocialMedia error: ${e} - '${url}'\n\t${rawContents.slice(0, contentsLogLimit)}...`);
+            return undefined;
+        }
     }
-    toCore() {
+
+    private toCore(): object {
         return {
             uid: this.uid,
             nm: this.nm,
@@ -580,77 +666,66 @@ class Model extends RefinedEventEmitter_1.RefinedEventEmitter {
             tags: this.tags,
         };
     }
-    toString() {
+
+    public toString(): string {
         // tslint:disable-next-line:no-null-keyword
         return JSON.stringify(this.toCore(), null, 4);
     }
 }
-Model.whenMap = new Map();
-// #region Static EventEmitter methods
-// EventEmitter object to be used for events firing for all models
-Model.eventsForAllModels = new RefinedEventEmitter_1.RefinedEventEmitter();
-// Expose the "all model" events as constructor properies to be accessed
-// like Model.on(...)
-Model.addListener = (event, listener) => Model.eventsForAllModels.addListener(event, listener);
+
+export type ModelEventCallback = (model: Model, before: UnknownJsonField | string[] | boolean, after: UnknownJsonField | string[] | boolean) => void;
+export type whenFilter = (m: Model) => boolean;
+export type whenCallback = (m: Model, p?: Message | string[]) => void;
+interface whenMapEntry {
+    onTrue: whenCallback;
+    onFalseAfterTrue?: whenCallback;
+    matchedSet: Set<number>;
+}
+interface mergeCallbackPayload { prop: string; oldstate: UnknownJsonField | string[]; newstate: UnknownJsonField | string[]; }
+export interface ModelSessionDetails extends BaseMessage, ModelDetailsMessage, UserDetailsMessage, SessionDetailsMessage {
+    model_sw?: number;
+    truepvt?: number;
+    guests_muted?: number;
+    basics_muted?: number;
+    share_albums?: number;
+    share_follows?: number;
+    share_clubs?: number;
+    share_collections?: number;
+    share_stores?: number;
+    share_tm_album?: number;
+    [index: string]: UnknownJsonField;
+}
+
 /**
- * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter)
- * method that registers a callback for model change events.
+ * Known model events
  *
- * This variant will listen for changes on *all* models. To listen for
- * changes on one specific model use the [model.on instance method](#modelon)
- * @param event "uid", "tags", "nm" or any of the property names of
- * [model.bestSession](#modelbestsession)
- * @param listener A callback to be invoked whenever the property indicated
- * by the event name changes for any model. The callback will be given 3
- * parameters: the model instance that changed, the value of the property
- * before the change, and the value of the property after the change:
- * @example
- * // Print to the console whenever any model's video state changes
- * const mfc = require("MFCAuto");
- * const client = new mfc.Client();
+ * This may not be a complete set, and serves only as a general
+ * guide to prevent common mistakes like typos and to ease
+ * development through better intellisense. If MFC starts sending
+ * new, previously unknown, properties as part of the model
+ * session details, those properties will automatically be merged
+ * into sessions and events will be fired for them.
  *
- * mfc.Model.on("vs", (model, before, after) => {
- *      console.log(`${model.nm}'s state changed to ${mfc.STATE[after]}`);
- * });
- *
- * client.connect();
+ * For TypeScript compilation purposes, if you're sure an event
+ * is present, use a type assertion to avoid compile errors.
  */
-Model.on = (event, listener) => Model.eventsForAllModels.on(event, listener);
+export type ModelEventName = "sid" | "uid" | "pid" | "lv" | "nm" | "vs" | "msg" | "age" | "avatar" | "blurb" | "camserv" | "chat_bg" | "chat_color" | "chat_font" | "chat_opt" | "city" | "country" | "creation" | "ethnic" | "occupation" | "photos" | "profile" | "camscore" | "continent" | "flags" | "kbit" | "lastnews" | "mg" | "missmfc" | "new_model" | "rank" | "rc" | "topic" | "hidecs" | "sfw" | "model_sw" | "truepvt" | "guests_muted" | "basics_muted" | "share_albums" | "share_follows" | "share_clubs" | "share_collections" | "share_stores" | "share_tm_album" | "tags" | "ANY";
+
 /**
- * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter)
- * method like Model.on but the registered callback is only invoked once,
- * on the first instance of the given event
- * @param event "uid", "tags", "nm" or any of the property names of
- * [model.bestSession](#modelbestsession)
- * @param listener A callback to be invoked whenever the property indicated
- * by the event name changes for any model. The callback will be given 3
- * parameters: the model instance that changed, the value of the property
- * before the change, and the value of the property after the change:
+ * Social media details for a model
  */
-Model.once = (event, listener) => Model.eventsForAllModels.once(event, listener);
-Model.prependListener = (event, listener) => Model.eventsForAllModels.prependListener(event, listener);
-Model.prependOnceListener = (event, listener) => Model.eventsForAllModels.prependOnceListener(event, listener);
-/**
- * [EventEmitter](https://nodejs.org/api/all.html#events_class_eventemitter)
- * method that removes a listener callback previously registered with
- * Model.on or Model.once
- */
-Model.removeListener = (event, listener) => Model.eventsForAllModels.removeListener(event, listener);
-Model.removeAllListeners = (event) => Model.eventsForAllModels.removeAllListeners(event);
-Model.getMaxListeners = () => Model.eventsForAllModels.getMaxListeners();
-Model.setMaxListeners = (n) => Model.eventsForAllModels.setMaxListeners(n);
-Model.listeners = (event) => Model.eventsForAllModels.listeners(event);
-Model.emit = (event, ...args) => Model.eventsForAllModels.emit(event, ...args);
-Model.eventNames = () => Model.eventsForAllModels.eventNames();
-Model.listenerCount = (event) => Model.eventsForAllModels.listenerCount(event);
-Model.rawListeners = (event) => Model.eventsForAllModels.rawListeners(event);
-// #endregion
-/**
- * Map of all known models that is built up as we receive model
- * information from the server. This should not usually be accessed
- * directly. If you wish to access a specific model, use
- * [Model.getModel](#modelgetmodelid-createifnecessary) instead.
- */
-Model.knownModels = new Map();
-exports.Model = Model;
-//# sourceMappingURL=Model.js.map
+export interface ModelSocialMedia {
+    twitter_username?: string;
+    instagram_username?: string;
+    mfc_share?: {
+        user_id: number;
+        user_name: string;
+        view_count: number;
+        follower_count: number;
+        follower_count_day: number;
+        follower_count_week: number;
+        follower_count_month: number;
+        album_count: number;
+        album_last_created_at: string;
+    };
+}

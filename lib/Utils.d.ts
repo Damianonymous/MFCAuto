@@ -1,3 +1,4 @@
+/// <reference types="cheerio" />
 export declare enum LogLevel {
     /** No logging to the console, not even errors */
     SILENT = 0,
@@ -30,6 +31,7 @@ export declare function log(msg: string | (() => string), logFileName?: string, 
 export declare function decodeIfNeeded(str: string): string;
 export declare function decodeAny(anything: any): any;
 export declare function applyMixins(derivedCtor: Function, baseCtors: Function[]): void;
+export declare type Constructor<T> = new (...args: any[]) => T;
 /**
  * Helper function to find the full path to an executable of a given name
  * that should have been brought down as a direct npm dependency of MFCAuto.
@@ -48,3 +50,28 @@ export declare function spawnOutput(command: string, args?: string[]): Promise<s
  * @param input
  */
 export declare function parseJsObj(input: string): any;
+/**
+ * Dynamically loads script code from the web, massaging it with the given
+ * massager function first, and then passes the resulting instantiated object
+ * to the given callback.
+ *
+ * We try to use this sparingly as it opens us up to breaks from site changes.
+ * But it is still useful for the more complex or frequently updated parts
+ * of MFC.
+ * @param url URL from which to load the site script
+ * @param massager Post-processor function that takes the raw site script and
+ * converts/massages it to a usable form.
+ * @returns A promise that resolves with the object loaded from site code
+ * @access private
+ */
+export declare function loadFromWeb(url: string, massager?: (src: string) => string): Promise<any>;
+/**
+ * Creates an object suitable for use as the POST payload for a given HTML form.
+ * This will not correctly handle any form elements that are dynamically added,
+ * removed, or altered by page script. Fortunately, MFC doesn't seem to do that
+ * at the moment.
+ * @param form A CheerioElement containing the HTML form to create parameters for
+ * @param userOptions Any user provided overrides for the page defaults
+ * @access private
+ */
+export declare function createFormInput<T, U>(form: CheerioElement, userOptions: T | undefined): U;

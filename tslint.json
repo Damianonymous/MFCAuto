@@ -96,7 +96,7 @@
     "no-redundant-jsdoc": false,
     "no-reference": true,
     "no-require-imports": false,
-    "no-shadowed-variable": true,
+    "no-shadowed-variable": false,
     "no-sparse-arrays": true,
     "no-string-literal": true,
     "no-string-throw": true,

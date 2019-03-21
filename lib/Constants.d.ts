@@ -1,6 +1,7 @@
 export declare const MAGIC = -2027771214;
 export declare const FLASH_PORT = 8100;
-export declare const WEBSOCKET_PORT = 8080;
+export declare const WEBSOCKET_PORT = 443;
+export declare const SHARE_URL = "https://share.myfreecams.com";
 export declare enum STATE {
     FreeChat = 0,
     Away = 2,
@@ -9,6 +10,10 @@ export declare enum STATE {
     Club = 14,
     Online = 90,
     Offline = 127,
+}
+export declare enum ChannelType {
+    FreeChat = 0,
+    NonFreeChat = 1,
 }
 export declare enum LOGIN_VERSION {
     FLASH = 20071025,
@@ -24,6 +29,13 @@ export declare enum CHANNEL {
 }
 export declare enum CLIENT {
     "VERSION_REQUIRED" = 20060925,
+}
+export declare enum CLUB {
+    "ID_START" = 0,
+    "ID_END" = 2000000000,
+}
+export declare enum CLUBGROUP {
+    "ID_START" = 2000000000,
 }
 export declare enum DISPLAY {
     "PM_INLINE_WHISPER" = 1,
@@ -113,22 +125,22 @@ export declare enum FCBAN {
     "LIFE" = 3,
 }
 export declare enum FCCHAN {
-    "EVENT_NONE" = 0,
     "NOOPT" = 0,
-    "EVENT_CLEARCHAT" = 1,
+    "EVENT_NONE" = 0,
     "JOIN" = 1,
-    "ERR_NOCHANNEL" = 2,
-    "EVENT_MUTE" = 2,
+    "EVENT_CLEARCHAT" = 1,
     "PART" = 2,
-    "ERR_NOTMEMBER" = 3,
+    "EVENT_MUTE" = 2,
+    "ERR_NOCHANNEL" = 2,
     "EVENT_TOPIC" = 3,
+    "ERR_NOTMEMBER" = 3,
     "ERR_GUESTMUTE" = 4,
     "EVENT_COUNTDOWN" = 4,
     "OLDMSG" = 4,
-    "ERR_GROUPMUTE" = 5,
     "EVENT_KICK" = 5,
-    "ERR_NOTALLOWED" = 6,
+    "ERR_GROUPMUTE" = 5,
     "EVENT_WHITEBOARD_ON" = 6,
+    "ERR_NOTALLOWED" = 6,
     "EVENT_WHITEBOARD_OFF" = 7,
     "EVENT_RESERVED_008" = 8,
     "HISTORY" = 8,
@@ -139,9 +151,9 @@ export declare enum FCCHAN {
     "EVENT_RESERVED_013" = 13,
     "EVENT_RESERVED_014" = 14,
     "EVENT_RESERVED_015" = 15,
+    "CAMSTATE" = 16,
     "EVENT_RESERVED_016" = 16,
     "LIST" = 16,
-    "CAMSTATE" = 16,
     "EVENT_RESERVED_017" = 17,
     "EVENT_RESERVED_018" = 18,
     "EVENT_RESERVED_019" = 19,
@@ -157,6 +169,8 @@ export declare enum FCCHAN {
     "EXPIRE" = 16384,
     "NOTIFY" = 32768,
     "APPLY" = 65536,
+    "IMPORT" = 131072,
+    "BATCH" = 262144,
 }
 export declare enum FCERRTYPE {
     "INVALIDUSER" = 10,
@@ -200,7 +214,10 @@ export declare enum FCL {
     "SOCIALDATA" = 23,
     "RESERVED_23" = 23,
     "RESERVED_24" = 24,
+    "SHARE_CLUBS" = 24,
+    "SHARE_CLUBMEMBERSHIPS" = 25,
     "RESERVED_25" = 25,
+    "SHARE_CLUBSHOWS" = 26,
     "RESERVED_26" = 26,
     "RESERVED_27" = 27,
     "RESERVED_28" = 28,
@@ -242,6 +259,11 @@ export declare enum FCNOSESS {
     "GRP" = 2,
     "TRUEPVT" = 4,
     "TOKEN_MIN" = 8,
+    "PLATFORM" = 16,
+    "VIDEOSERVER" = 32,
+    "INVALID_STATE" = 64,
+    "MODEL_SETTINGS" = 128,
+    "CLIENT_ERROR" = 256,
 }
 export declare enum FCOPT {
     "NONE" = 0,
@@ -264,6 +286,7 @@ export declare enum FCOPT {
     "WHITEBOARD1" = 65536,
     "WHITEBOARD2" = 131072,
     "ATTACHED" = 262144,
+    "WEBRTCV1" = 524288,
 }
 export declare enum FCPORT {
     "EDGE_POLICY" = 843,
@@ -299,6 +322,7 @@ export declare enum FCRESPONSE {
     "INSUFFICIENT" = 16,
     "EXPIRED" = 17,
     "BINARY" = 18,
+    "UNKNOWN" = 255,
 }
 export declare enum FCRPC {
     "NONE" = 0,
@@ -431,6 +455,8 @@ export declare enum FCTYPE {
     "XRESPONSE" = 87,
     "EDGECON" = 88,
     "XMESG" = 89,
+    "CLUBSHOW" = 90,
+    "CLUBCMD" = 91,
     "ZGWINVALID" = 95,
     "CONNECTING" = 96,
     "CONNECTED" = 97,
@@ -444,8 +470,8 @@ export declare enum FCUCR {
     "FRIENDS" = 1,
     "MODELS" = 2,
     "PREMIUMS" = 4,
-    "BASICS" = 8,
     "BASIC" = 8,
+    "BASICS" = 8,
     "ALL" = 15,
 }
 export declare enum FCUOPT {
@@ -457,7 +483,7 @@ export declare enum FCUOPT {
     "RESERVED_05" = 16,
     "RESERVED_06" = 32,
     "RESERVED_07" = 64,
-    "RESERVED_08" = 128,
+    "LOG_XMESG" = 128,
     "RESERVED_09" = 256,
     "RESERVED_10" = 512,
     "RESERVED_11" = 1024,
@@ -481,6 +507,22 @@ export declare enum FCUPDATE {
     "REGION_SAFE" = 3,
     "CAMSCORE" = 4,
     "ROOMFILTER" = 5,
+    "CLUBMEMBERSHIP" = 6,
+    "CLUB" = 7,
+    "CLUBCACHE" = 8,
+}
+export declare enum FCUSER {
+    "TESTCAM2" = 469516,
+    "TESTCAM3" = 469517,
+    "TESTCAM1" = 469518,
+    "MFCNEWS" = 481462,
+    "CAMNEWS" = 481464,
+    "LOUNGE" = 486121,
+    "LOUNGE1K" = 486123,
+    "LOUNGE10K" = 486124,
+    "CAM_LOUNGE" = 486128,
+    "MFCSHARE" = 1535156,
+    "CAMSHARE" = 1535157,
 }
 export declare enum FCVIDEO {
     "TX_IDLE" = 0,
@@ -594,8 +636,8 @@ export declare enum PLAT {
 export declare enum PLATFORM {
     "NONE" = 0,
     "MFC" = 1,
-    "CAMYOU" = 2,
     "CAMMUNITY" = 2,
+    "CAMYOU" = 2,
 }
 export declare enum ROOMFILTER {
     "EMPTY" = 0,
@@ -622,8 +664,8 @@ export declare enum ROOMFILTER {
     "RESERVED_20" = 1048576,
 }
 export declare enum SERVER {
-    "VERSION" = 20071218,
     "VERSION_REQUIRED" = 20071218,
+    "VERSION" = 20071218,
 }
 export declare enum SESSCHAN {
     "ID_START" = 200000000,
@@ -705,10 +747,10 @@ export declare enum WEBCAM {
 }
 export declare enum WINDOW {
     "MODE_DEFAULT" = 0,
-    "MODE_DHTML" = 1,
     "MODE_DESKTOP_DHTML" = 1,
-    "MODE_BROWSER" = 2,
+    "MODE_DHTML" = 1,
     "MODE_MOBILE_DHTML" = 2,
+    "MODE_BROWSER" = 2,
 }
 export declare enum WORKER {
     "ID_START" = 50000000,
@@ -921,24 +963,6 @@ export declare const CACHED_SERVERCONFIG: {
         "1357": string;
         "1358": string;
         "1359": string;
-        "1360": string;
-        "1361": string;
-        "1362": string;
-        "1363": string;
-        "1364": string;
-        "1365": string;
-        "1366": string;
-        "1367": string;
-        "1368": string;
-        "1369": string;
-        "1370": string;
-        "1371": string;
-        "1372": string;
-        "1373": string;
-        "1374": string;
-        "1375": string;
-        "1376": string;
-        "1377": string;
         "840": string;
         "841": string;
         "842": string;
@@ -1040,6 +1064,24 @@ export declare const CACHED_SERVERCONFIG: {
         "992": string;
     };
     "ngvideo_servers": {
+        "1360": string;
+        "1361": string;
+        "1362": string;
+        "1363": string;
+        "1364": string;
+        "1365": string;
+        "1366": string;
+        "1367": string;
+        "1368": string;
+        "1369": string;
+        "1370": string;
+        "1371": string;
+        "1372": string;
+        "1373": string;
+        "1374": string;
+        "1375": string;
+        "1376": string;
+        "1377": string;
         "1378": string;
         "1379": string;
         "1380": string;
@@ -1067,6 +1109,47 @@ export declare const CACHED_SERVERCONFIG: {
         "1557": string;
         "1558": string;
         "1559": string;
+        "3000": string;
+        "3001": string;
+        "3002": string;
+        "3003": string;
+        "3004": string;
+        "3005": string;
+        "3006": string;
+        "3007": string;
+        "3008": string;
+        "3009": string;
+        "3010": string;
+        "3011": string;
+        "3012": string;
+        "3013": string;
+        "3014": string;
+        "3015": string;
+        "3016": string;
+        "3017": string;
+        "3018": string;
+        "3019": string;
+        "3020": string;
+        "3021": string;
+        "3022": string;
+        "3023": string;
+        "3024": string;
+        "3025": string;
+        "3026": string;
+        "3027": string;
+        "3028": string;
+        "3029": string;
+        "3030": string;
+        "3031": string;
+        "3032": string;
+        "3033": string;
+        "3034": string;
+        "3035": string;
+        "3036": string;
+        "3037": string;
+        "3038": string;
+        "3039": string;
+        "3040": string;
     };
     "release": boolean;
     "video_servers": string[];

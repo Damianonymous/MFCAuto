@@ -1,5 +1,5 @@
 import { FCTYPE } from "./Constants";
-export declare type AnyMessage = FCTypeLoginResponse | FCTypeSlaveVShareResponse | FCTypeTagsResponse | FCTokenIncResponse | RoomDataMessage | ExtDataMessage | ManageListMessage | BookmarksMessage | RoomDataUserCountObjectMessage | RoomDataUserCountArrayMessage | StatusMessage | ZBanMessage | Message;
+export declare type AnyMessage = FCTypeLoginResponse | FCTypeSlaveVShareResponse | FCTypeTagsResponse | FCTokenIncResponse | RoomDataMessage | ExtDataMessage | ManageListMessage | BookmarksMessage | RoomDataUserCountObjectMessage | RoomDataUserCountArrayMessage | StatusMessage | ZBanMessage | TKXMessage | RoomHelperErrorMessage | ClubShowMessage | Message;
 export declare type UnknownJsonField = string | number | boolean | object | undefined;
 export declare type FCTypeLoginResponse = string;
 export declare type FCTypeSlaveVShareResponse = number[];
@@ -222,6 +222,8 @@ export interface ZBanMessage {
  * when first joining a model's chat room
  */
 export interface StatusMessage {
+    /** Emoji to use for the room's highest cumulative tipper */
+    c_emoji: string;
     c_hightipper: {
         /** Total amount tipped by the room's highest cumulative tipper (public tips only) */
         amt: number;
@@ -230,6 +232,10 @@ export interface StatusMessage {
     };
     /** Channel ID of the room this message is about */
     chan: number;
+    /** ??? Room helper emoji maybe? Is that a thing? */
+    r_emoji: string;
+    /** Emoji to use for the room's highest single tipper */
+    s_emoji: string;
     s_hightipper: {
         /** Amount of the room's highest single tip (public tips only) */
         amt: number;
@@ -250,4 +256,99 @@ export interface TKXMessage {
     ctxenc: string;
     cxid: number;
     tkx: string;
+}
+/**
+ * Logged in accounts receive details about
+ * the state of their mail box when they
+ * log in
+ */
+export interface InboxMessage {
+    /** An array of emails where the strings are the sender's name and mail subject line */
+    recentMail: [[number, string, number, string, number]];
+    unreadCount: number;
+}
+/**
+ * ??? MFC Share advertisements? Purchases? Not entirely sure
+ */
+export interface XMesgMessage {
+    data: {
+        /** ??? Always an empty string in my observation */
+        description: string;
+        /** Always share.myfreecams.com */
+        domain: string;
+        /** Full url to the thumbnail of the share item (minus the leading "https:") */
+        image: string;
+        /** Name of the MFC Share item */
+        title: string;
+        /** Token cost of the MFC Share item */
+        token_amount: number | null;
+        /** Type of the MFC Share thing, "Album" or "Item", etc... */
+        type: string;
+        /** Full url to the share item (this time including the "https:" part) */
+        url: string;
+        /** Model's user id */
+        user_id: string;
+        /** Model's name */
+        username: string;
+    };
+    /** A stringified UserDetailsMessage about a member */
+    from: string;
+    /** Model's user id */
+    to: number;
+    /** ??? Always "card"? This is not the type of the MFC Share item */
+    type: string;
+}
+/**
+ * Received when room helper command fails
+ */
+export interface RoomHelperErrorMessage {
+    _err: number;
+    _msg: string;
+    model?: number;
+    sofar?: number;
+    total?: number;
+    type?: number;
+    countdown?: boolean;
+    topic?: string;
+    op?: string;
+    sid?: number;
+    username?: string;
+    chan?: number;
+    users?: number[] | string[];
+}
+/**
+ * Sent when you join the public chat
+ * channel of a model who is in a club show
+ */
+export interface ClubShowMessage {
+    ckx_auth?: {
+        ctx: ["ck", number, number, number, number, number, number, number];
+        ctxenc: string;
+        tkx: string;
+    };
+    /** Array of all the clubs that have access to the show */
+    clubs: Array<{
+        /** ID of the club? */
+        cid: number;
+        /** Name of the club as it appears on MFC Share */
+        name: string;
+        /** A different (and more important) club ID */
+        slug: string;
+    }>;
+    /** Unknown */
+    gid: number;
+    /** This model's user id */
+    model: number;
+    /**
+     * FCCHAN.WELCOME if the show just started
+     * or FCCHAN.EXPIRE if the show ended (?)
+     */
+    op: number;
+    /** Unknown. Maybe the timestamp of when the club show started? */
+    start: number;
+    /**
+     * Club session id, if this is defined, we're in an applicable
+     * club for this club show
+     */
+    tksid?: number;
 }
