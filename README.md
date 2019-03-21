@@ -17,7 +17,7 @@ Here are some examples of how you might use MFCAuto.js.  [More complete API docu
 # Install a released version using the release tag (recommended)
 $ npm install Damianonymous/MFCAuto#v5.11.4
 
-# Install a specific commit hash (this is the v5.2.2 commit hash)
+# Install a specific commit hash (this is the v5.11.4 commit hash)
 $ npm install Damianonymous/MFCAuto#76efaee37e91cf688f908bba1041f50659107b6b
 
 # Install the latest MFCAuto from the tip of master
